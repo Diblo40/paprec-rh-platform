@@ -2127,6 +2127,38 @@ function renewFormationToday() {
     renderPersonnel();
 }
 
+function sendFormationEmailRelance() {
+    if (!activeInfoFormation) return;
+    const { empId, formationId } = activeInfoFormation;
+    const emp = employees.find(e => e.id === empId);
+    if (!emp) return;
+
+    const def = FORMATION_DEFINITIONS.find(d => d.id === formationId);
+    const formName = def ? def.name : formationId;
+    const f = (emp.formations || []).find(item => item.id === formationId);
+
+    const expDateStr = f && f.expiration ? formatDateFR(f.expiration) : 'Prochainement';
+    const recipientEmail = emp.email || 'Emilie.JAYAT@paprec.com';
+
+    const subject = encodeURIComponent(`[PAPREC RH] Relance Échéance Formation - ${formName} (${emp.prenom} ${emp.nom})`);
+    const body = encodeURIComponent(
+`Bonjour ${emp.prenom},
+
+Sauf erreur de notre part, votre formation / habilitation QSE suivante arrive à échéance :
+
+• Formation / Habilitation : ${formName}
+• Salarié : ${emp.prenom} ${emp.nom} (${emp.role || emp.metier})
+• Date d'échéance / Recyclage : ${expDateStr}
+
+Merci de prendre contact avec la Responsable RH & QSE (${rhSettings.signataireNom}) afin d'organiser votre session de renouvellement.
+
+Cordialement,
+Service RH & QSE ${rhSettings.agenceNom}`
+    );
+
+    window.location.href = `mailto:${recipientEmail}?subject=${subject}&body=${body}`;
+}
+
 // Export CSV
 function exportAllCSV() {
     let csv = '\uFEFF';
