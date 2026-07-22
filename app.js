@@ -39,6 +39,10 @@ function init() {
         } catch (e) {
             employees = JSON.parse(JSON.stringify(INITIAL_EMPLOYEES));
         }
+    } else {
+        employees = JSON.parse(JSON.stringify(INITIAL_EMPLOYEES));
+    }
+
     // Clean old fictitious SST entries from stored data to strictly match Excel
     employees.forEach(emp => {
         if (emp.formations) {
