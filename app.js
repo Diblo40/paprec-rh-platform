@@ -118,9 +118,12 @@ function updateSettingsDisplay() {
 }
 
 function openSettingsRHModal() {
-    document.getElementById('settings-signataire-nom')?.value = rhSettings.signataireNom;
-    document.getElementById('settings-signataire-titre')?.value = rhSettings.signataireTitre;
-    document.getElementById('settings-agence-nom')?.value = rhSettings.agenceNom;
+    const _el_1 = document.getElementById('settings-signataire-nom');
+    if (_el_1) _el_1.value = rhSettings.signataireNom;
+    const _el_2 = document.getElementById('settings-signataire-titre');
+    if (_el_2) _el_2.value = rhSettings.signataireTitre;
+    const _el_3 = document.getElementById('settings-agence-nom');
+    if (_el_3) _el_3.value = rhSettings.agenceNom;
     document.getElementById('modal-settings-rh')?.classList.add('active');
 }
 
@@ -294,16 +297,24 @@ function updateStats() {
         if (!e.hasDanger && !e.hasWarning) okForm++;
     });
 
-    document.getElementById('stat-total-emp')?.textContent = total;
-    document.getElementById('stat-cdi-emp')?.textContent = cdi;
-    document.getElementById('stat-interim-emp')?.textContent = interim;
-    document.getElementById('stat-docs-total')?.textContent = docsCount;
+    const _el_4 = document.getElementById('stat-total-emp');
+    if (_el_4) _el_4.textContent = total;
+    const _el_5 = document.getElementById('stat-cdi-emp');
+    if (_el_5) _el_5.textContent = cdi;
+    const _el_6 = document.getElementById('stat-interim-emp');
+    if (_el_6) _el_6.textContent = interim;
+    const _el_7 = document.getElementById('stat-docs-total');
+    if (_el_7) _el_7.textContent = docsCount;
 
     // Formations stats
-    document.getElementById('fstat-total')?.textContent = total;
-    document.getElementById('fstat-ok')?.textContent = okForm;
-    document.getElementById('fstat-warning')?.textContent = warnForm;
-    document.getElementById('fstat-danger')?.textContent = dangForm;
+    const _el_8 = document.getElementById('fstat-total');
+    if (_el_8) _el_8.textContent = total;
+    const _el_9 = document.getElementById('fstat-ok');
+    if (_el_9) _el_9.textContent = okForm;
+    const _el_10 = document.getElementById('fstat-warning');
+    if (_el_10) _el_10.textContent = warnForm;
+    const _el_11 = document.getElementById('fstat-danger');
+    if (_el_11) _el_11.textContent = dangForm;
 }
 
 // ================= MODULE 1: PERSONNEL =================
@@ -394,31 +405,43 @@ function openProfileModal(empId) {
 
     currentEditingEmpId = empId;
 
-    document.getElementById('profile-avatar')?.textContent = getInitials(emp.nom, emp.prenom);
-    document.getElementById('profile-full-name')?.textContent = `${emp.prenom} ${emp.nom}`;
-    document.getElementById('profile-sub')?.textContent = `${emp.role || emp.metier} (${emp.contrat || 'CDI'})`;
+    const _el_12 = document.getElementById('profile-avatar');
+    if (_el_12) _el_12.textContent = getInitials(emp.nom, emp.prenom);
+    const _el_13 = document.getElementById('profile-full-name');
+    if (_el_13) _el_13.textContent = `${emp.prenom} ${emp.nom}`;
+    const _el_14 = document.getElementById('profile-sub');
+    if (_el_14) _el_14.textContent = `${emp.role || emp.metier} (${emp.contrat || 'CDI'})`;
 
-    document.getElementById('profile-metier-badge')?.textContent = emp.metier || 'Général';
-    document.getElementById('profile-categorie-badge')?.textContent = emp.categorie || 'Ouvrier';
-    document.getElementById('profile-statut-badge')?.textContent = emp.statut || 'Salarié Actif';
+    const _el_15 = document.getElementById('profile-metier-badge');
+    if (_el_15) _el_15.textContent = emp.metier || 'Général';
+    const _el_16 = document.getElementById('profile-categorie-badge');
+    if (_el_16) _el_16.textContent = emp.categorie || 'Ouvrier';
+    const _el_17 = document.getElementById('profile-statut-badge');
+    if (_el_17) _el_17.textContent = emp.statut || 'Salarié Actif';
 
-    document.getElementById('profile-date-entree')?.textContent = formatDateFR(emp.dateEntree);
-    document.getElementById('profile-visite-med')?.textContent = formatDateFR(emp.visiteMedicale);
-    document.getElementById('profile-telephone')?.textContent = emp.telephone || '-';
-    document.getElementById('profile-email')?.textContent = emp.email || '-';
+    const _el_18 = document.getElementById('profile-date-entree');
+    if (_el_18) _el_18.textContent = formatDateFR(emp.dateEntree);
+    const _el_19 = document.getElementById('profile-visite-med');
+    if (_el_19) _el_19.textContent = formatDateFR(emp.visiteMedicale);
+    const _el_20 = document.getElementById('profile-telephone');
+    if (_el_20) _el_20.textContent = emp.telephone || '-';
+    const _el_21 = document.getElementById('profile-email');
+    if (_el_21) _el_21.textContent = emp.email || '-';
 
     if (emp.tailleEpi) {
-        document.getElementById('profile-epi-info')?.textContent = `Veste: ${emp.tailleEpi.veste || '-'} | Pantalon: ${emp.tailleEpi.pantalon || '-'} | Chaussures: ${emp.tailleEpi.chaussures || '-'}`;
+        const _el_22 = document.getElementById('profile-epi-info');
+        if (_el_22) _el_22.textContent = `Veste: ${emp.tailleEpi.veste || '-'} | Pantalon: ${emp.tailleEpi.pantalon || '-'} | Chaussures: ${emp.tailleEpi.chaussures || '-'}`;
     } else {
-        document.getElementById('profile-epi-info')?.textContent = 'Non renseigné';
+        const _el_23 = document.getElementById('profile-epi-info');
+        if (_el_23) _el_23.textContent = 'Non renseigné';
     }
 
     const leaveStats = calculateEmployeeLeaveStats(emp, '2026');
-    document.getElementById('profile-solde-cp')?.innerHTML = `
+    const _el_solde_cp = document.getElementById('profile-solde-cp'); if (_el_solde_cp) _el_solde_cp.innerHTML = `
         <span style="font-size: 1.3rem; font-weight:800; color:var(--primary);">${leaveStats.cpSolde} j restants</span>
         <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Acquis: ${leaveStats.cpAcquis} j | Pris: ${leaveStats.cpPris} j</div>
     `;
-    document.getElementById('profile-solde-rtt')?.innerHTML = `
+    const _el_solde_rtt = document.getElementById('profile-solde-rtt'); if (_el_solde_rtt) _el_solde_rtt.innerHTML = `
         <span style="font-size: 1.3rem; font-weight:800; color:var(--secondary);">${leaveStats.rttSolde} j restants</span>
         <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Acquis: ${leaveStats.rttAcquis} j | Pris: ${leaveStats.rttPris} j</div>
     `;
@@ -447,7 +470,7 @@ function openProfileModal(empId) {
 
     renderEmployeeFiles(emp);
 
-    document.getElementById('btn-profile-edit')?.onclick = () => {
+    const _el_profile_edit = document.getElementById('btn-profile-edit'); if (_el_profile_edit) _el_profile_edit.onclick = () => {
         closeModals();
         openEditEmpModal(emp.id);
     };
@@ -489,21 +512,36 @@ function handleProfileFileUpload(event) {
 }
 
 function openAddEmpModal() {
-    document.getElementById('modal-emp-title')?.textContent = 'Nouveau Collaborateur';
-    document.getElementById('emp-id')?.value = '';
-    document.getElementById('emp-nom')?.value = '';
-    document.getElementById('emp-prenom')?.value = '';
-    document.getElementById('emp-metier')?.value = 'Chauffeurs';
-    document.getElementById('emp-role')?.value = '';
-    document.getElementById('emp-categorie')?.value = 'Ouvrier';
-    document.getElementById('emp-contrat')?.value = 'CDI';
-    document.getElementById('emp-date-entree')?.value = '';
-    document.getElementById('emp-visite-medicale')?.value = '';
-    document.getElementById('emp-telephone')?.value = '';
-    document.getElementById('emp-email')?.value = '';
-    document.getElementById('emp-epi-veste')?.value = '';
-    document.getElementById('emp-epi-pantalon')?.value = '';
-    document.getElementById('emp-epi-chaussures')?.value = '';
+    const _el_24 = document.getElementById('modal-emp-title');
+    if (_el_24) _el_24.textContent = 'Nouveau Collaborateur';
+    const _el_25 = document.getElementById('emp-id');
+    if (_el_25) _el_25.value = '';
+    const _el_26 = document.getElementById('emp-nom');
+    if (_el_26) _el_26.value = '';
+    const _el_27 = document.getElementById('emp-prenom');
+    if (_el_27) _el_27.value = '';
+    const _el_28 = document.getElementById('emp-metier');
+    if (_el_28) _el_28.value = 'Chauffeurs';
+    const _el_29 = document.getElementById('emp-role');
+    if (_el_29) _el_29.value = '';
+    const _el_30 = document.getElementById('emp-categorie');
+    if (_el_30) _el_30.value = 'Ouvrier';
+    const _el_31 = document.getElementById('emp-contrat');
+    if (_el_31) _el_31.value = 'CDI';
+    const _el_32 = document.getElementById('emp-date-entree');
+    if (_el_32) _el_32.value = '';
+    const _el_33 = document.getElementById('emp-visite-medicale');
+    if (_el_33) _el_33.value = '';
+    const _el_34 = document.getElementById('emp-telephone');
+    if (_el_34) _el_34.value = '';
+    const _el_35 = document.getElementById('emp-email');
+    if (_el_35) _el_35.value = '';
+    const _el_36 = document.getElementById('emp-epi-veste');
+    if (_el_36) _el_36.value = '';
+    const _el_37 = document.getElementById('emp-epi-pantalon');
+    if (_el_37) _el_37.value = '';
+    const _el_38 = document.getElementById('emp-epi-chaussures');
+    if (_el_38) _el_38.value = '';
 
     document.getElementById('modal-employee')?.classList.add('active');
 }
@@ -540,29 +578,49 @@ function openEditEmpModal(empId) {
     const emp = employees.find(e => e.id === empId);
     if (!emp) return;
 
-    document.getElementById('modal-emp-title')?.textContent = 'Modifier Profil Salarié';
-    document.getElementById('emp-id')?.value = emp.id;
-    document.getElementById('emp-nom')?.value = emp.nom || '';
-    document.getElementById('emp-prenom')?.value = emp.prenom || '';
-    document.getElementById('emp-metier')?.value = emp.metier || 'Chauffeurs';
-    document.getElementById('emp-role')?.value = emp.role || '';
-    document.getElementById('emp-categorie')?.value = emp.categorie || 'Ouvrier';
-    document.getElementById('emp-contrat')?.value = emp.contrat || 'CDI';
-    document.getElementById('emp-date-entree')?.value = emp.dateEntree || '';
-    document.getElementById('emp-visite-medicale')?.value = emp.visiteMedicale || '';
-    document.getElementById('emp-telephone')?.value = emp.telephone || '';
-    document.getElementById('emp-email')?.value = emp.email || '';
-    document.getElementById('emp-cp-acquis')?.value = emp.cpAcquis !== undefined ? emp.cpAcquis : 25;
-    document.getElementById('emp-rtt-acquis')?.value = emp.rttAcquis !== undefined ? emp.rttAcquis : 10;
+    const _el_39 = document.getElementById('modal-emp-title');
+    if (_el_39) _el_39.textContent = 'Modifier Profil Salarié';
+    const _el_40 = document.getElementById('emp-id');
+    if (_el_40) _el_40.value = emp.id;
+    const _el_41 = document.getElementById('emp-nom');
+    if (_el_41) _el_41.value = emp.nom || '';
+    const _el_42 = document.getElementById('emp-prenom');
+    if (_el_42) _el_42.value = emp.prenom || '';
+    const _el_43 = document.getElementById('emp-metier');
+    if (_el_43) _el_43.value = emp.metier || 'Chauffeurs';
+    const _el_44 = document.getElementById('emp-role');
+    if (_el_44) _el_44.value = emp.role || '';
+    const _el_45 = document.getElementById('emp-categorie');
+    if (_el_45) _el_45.value = emp.categorie || 'Ouvrier';
+    const _el_46 = document.getElementById('emp-contrat');
+    if (_el_46) _el_46.value = emp.contrat || 'CDI';
+    const _el_47 = document.getElementById('emp-date-entree');
+    if (_el_47) _el_47.value = emp.dateEntree || '';
+    const _el_48 = document.getElementById('emp-visite-medicale');
+    if (_el_48) _el_48.value = emp.visiteMedicale || '';
+    const _el_49 = document.getElementById('emp-telephone');
+    if (_el_49) _el_49.value = emp.telephone || '';
+    const _el_50 = document.getElementById('emp-email');
+    if (_el_50) _el_50.value = emp.email || '';
+    const _el_51 = document.getElementById('emp-cp-acquis');
+    if (_el_51) _el_51.value = emp.cpAcquis !== undefined ? emp.cpAcquis : 25;
+    const _el_52 = document.getElementById('emp-rtt-acquis');
+    if (_el_52) _el_52.value = emp.rttAcquis !== undefined ? emp.rttAcquis : 10;
 
     if (emp.tailleEpi) {
-        document.getElementById('emp-epi-veste')?.value = emp.tailleEpi.veste || '';
-        document.getElementById('emp-epi-pantalon')?.value = emp.tailleEpi.pantalon || '';
-        document.getElementById('emp-epi-chaussures')?.value = emp.tailleEpi.chaussures || '';
+        const _el_53 = document.getElementById('emp-epi-veste');
+        if (_el_53) _el_53.value = emp.tailleEpi.veste || '';
+        const _el_54 = document.getElementById('emp-epi-pantalon');
+        if (_el_54) _el_54.value = emp.tailleEpi.pantalon || '';
+        const _el_55 = document.getElementById('emp-epi-chaussures');
+        if (_el_55) _el_55.value = emp.tailleEpi.chaussures || '';
     } else {
-        document.getElementById('emp-epi-veste')?.value = '';
-        document.getElementById('emp-epi-pantalon')?.value = '';
-        document.getElementById('emp-epi-chaussures')?.value = '';
+        const _el_56 = document.getElementById('emp-epi-veste');
+        if (_el_56) _el_56.value = '';
+        const _el_57 = document.getElementById('emp-epi-pantalon');
+        if (_el_57) _el_57.value = '';
+        const _el_58 = document.getElementById('emp-epi-chaussures');
+        if (_el_58) _el_58.value = '';
     }
 
     document.getElementById('modal-employee')?.classList.add('active');
@@ -907,20 +965,29 @@ function openCongesNoticeModal() {
 
 function openAddCongeModal() {
     populateEmpSelect();
-    document.getElementById('conge-id')?.value = '';
-    document.getElementById('conge-debut')?.value = '';
-    document.getElementById('conge-fin')?.value = '';
-    document.getElementById('conge-motif')?.value = '';
+    const _el_59 = document.getElementById('conge-id');
+    if (_el_59) _el_59.value = '';
+    const _el_60 = document.getElementById('conge-debut');
+    if (_el_60) _el_60.value = '';
+    const _el_61 = document.getElementById('conge-fin');
+    if (_el_61) _el_61.value = '';
+    const _el_62 = document.getElementById('conge-motif');
+    if (_el_62) _el_62.value = '';
     document.getElementById('modal-conge')?.classList.add('active');
 }
 
 function openAddCongeForEmp(empId) {
     populateEmpSelect();
-    document.getElementById('conge-emp-id')?.value = empId;
-    document.getElementById('conge-id')?.value = '';
-    document.getElementById('conge-debut')?.value = '';
-    document.getElementById('conge-fin')?.value = '';
-    document.getElementById('conge-motif')?.value = '';
+    const _el_63 = document.getElementById('conge-emp-id');
+    if (_el_63) _el_63.value = empId;
+    const _el_64 = document.getElementById('conge-id');
+    if (_el_64) _el_64.value = '';
+    const _el_65 = document.getElementById('conge-debut');
+    if (_el_65) _el_65.value = '';
+    const _el_66 = document.getElementById('conge-fin');
+    if (_el_66) _el_66.value = '';
+    const _el_67 = document.getElementById('conge-motif');
+    if (_el_67) _el_67.value = '';
     document.getElementById('modal-conge')?.classList.add('active');
 }
 
@@ -1082,8 +1149,10 @@ function openPlanningCellModal(empId, dayKey, weekKey) {
     const currentVal = empPlan ? (empPlan[dayKey] || '') : '';
 
     const dayName = dayKey.charAt(0).toUpperCase() + dayKey.slice(1);
-    document.getElementById('planning-cell-info')?.textContent = `${emp.prenom} ${emp.nom} — ${dayName} (${weekKey})`;
-    document.getElementById('planning-cell-text')?.value = currentVal;
+    const _el_68 = document.getElementById('planning-cell-info');
+    if (_el_68) _el_68.textContent = `${emp.prenom} ${emp.nom} — ${dayName} (${weekKey})`;
+    const _el_69 = document.getElementById('planning-cell-text');
+    if (_el_69) _el_69.value = currentVal;
 
     document.getElementById('modal-planning-cell')?.classList.add('active');
 }
@@ -1186,9 +1255,12 @@ function autoFillChauffeurEditor(empId) {
     const emp = employees.find(e => e.id === empId);
     if (!emp) return;
 
-    document.getElementById('ch-editor-nom')?.value = emp.nom || '';
-    document.getElementById('ch-editor-prenom')?.value = emp.prenom || '';
-    document.getElementById('ch-editor-fonction')?.value = emp.role || 'Chauffeur PL / SPL Ampliroll';
+    const _el_70 = document.getElementById('ch-editor-nom');
+    if (_el_70) _el_70.value = emp.nom || '';
+    const _el_71 = document.getElementById('ch-editor-prenom');
+    if (_el_71) _el_71.value = emp.prenom || '';
+    const _el_72 = document.getElementById('ch-editor-fonction');
+    if (_el_72) _el_72.value = emp.role || 'Chauffeur PL / SPL Ampliroll';
 }
 
 // EXACT VISUAL LAYOUT CLONE OF OFFICIAL PAPREC FORM DE39 (ZERO IMAGES AT PRINT)
@@ -1384,7 +1456,8 @@ function autoFillAccueilEditor(empId) {
     const emp = employees.find(e => e.id === empId);
     if (!emp) return;
 
-    document.getElementById('acc-editor-nom')?.value = `${emp.nom} ${emp.prenom}`;
+    const _el_73 = document.getElementById('acc-editor-nom');
+    if (_el_73) _el_73.value = `${emp.nom} ${emp.prenom}`;
 }
 
 function generateAndPrintAccueilFiche() {
@@ -1467,7 +1540,8 @@ function autoFillEIEEditor(empId) {
     const emp = employees.find(e => e.id === empId);
     if (!emp) return;
 
-    document.getElementById('eie-editor-nom')?.value = `${emp.nom} ${emp.prenom}`;
+    const _el_74 = document.getElementById('eie-editor-nom');
+    if (_el_74) _el_74.value = `${emp.nom} ${emp.prenom}`;
 }
 
 function generateAndPrintEIE() {
@@ -1557,7 +1631,8 @@ function autoFillEPEditor(empId) {
     const emp = employees.find(e => e.id === empId);
     if (!emp) return;
 
-    document.getElementById('ep-editor-nom')?.value = `${emp.nom} ${emp.prenom}`;
+    const _el_75 = document.getElementById('ep-editor-nom');
+    if (_el_75) _el_75.value = `${emp.nom} ${emp.prenom}`;
 }
 
 function generateAndPrintEP() {
@@ -1944,8 +2019,10 @@ function openFormationInfoModal(empId, formationId) {
 
     activeInfoFormation = { empId, formationId };
 
-    document.getElementById('info-modal-title')?.textContent = `${formName}`;
-    document.getElementById('info-modal-sub')?.textContent = `Collaborateur: ${emp.nom} ${emp.prenom} (${emp.metier})`;
+    const _el_76 = document.getElementById('info-modal-title');
+    if (_el_76) _el_76.textContent = `${formName}`;
+    const _el_77 = document.getElementById('info-modal-sub');
+    if (_el_77) _el_77.textContent = `Collaborateur: ${emp.nom} ${emp.prenom} (${emp.metier})`;
 
     const badgeEl = document.getElementById('info-modal-status-badge');
     const countdownEl = document.getElementById('info-modal-days-countdown');
@@ -2158,15 +2235,15 @@ function setupEventListeners() {
     document.getElementById('btn-conges-view-table')?.addEventListener('click', () => {
         document.getElementById('btn-conges-view-table')?.classList.add('active');
         document.getElementById('btn-conges-view-calendar')?.classList.remove('active');
-        document.getElementById('conges-view-table-container')?.style.display = 'block';
-        document.getElementById('conges-view-calendar-container')?.style.display = 'none';
+        const _el_c1 = document.getElementById('conges-view-table-container'); if (_el_c1) _el_c1.style.display = 'block';
+        const _el_c2 = document.getElementById('conges-view-calendar-container'); if (_el_c2) _el_c2.style.display = 'none';
     });
 
     document.getElementById('btn-conges-view-calendar')?.addEventListener('click', () => {
         document.getElementById('btn-conges-view-calendar')?.classList.add('active');
         document.getElementById('btn-conges-view-table')?.classList.remove('active');
-        document.getElementById('conges-view-table-container')?.style.display = 'none';
-        document.getElementById('conges-view-calendar-container')?.style.display = 'block';
+        const _el_c3 = document.getElementById('conges-view-table-container'); if (_el_c3) _el_c3.style.display = 'none';
+        const _el_c4 = document.getElementById('conges-view-calendar-container'); if (_el_c4) _el_c4.style.display = 'block';
         renderCongesCalendar3Months();
     });
 
@@ -2175,7 +2252,8 @@ function setupEventListeners() {
     document.getElementById('filter-metier-planning')?.addEventListener('change', renderPlanning);
 
     document.getElementById('btn-today-week')?.addEventListener('click', () => {
-        document.getElementById('planning-week-picker')?.value = '2026-W30';
+        const _el_78 = document.getElementById('planning-week-picker');
+        if (_el_78) _el_78.value = '2026-W30';
         renderPlanning();
     });
 
@@ -2185,19 +2263,23 @@ function setupEventListeners() {
     document.getElementById('filter-status-formations')?.addEventListener('change', renderFormationsMatrix);
 
     document.getElementById('fstat-card-total')?.addEventListener('click', () => {
-        document.getElementById('filter-status-formations')?.value = 'all';
+        const _el_79 = document.getElementById('filter-status-formations');
+        if (_el_79) _el_79.value = 'all';
         renderFormationsMatrix();
     });
     document.getElementById('fstat-card-ok')?.addEventListener('click', () => {
-        document.getElementById('filter-status-formations')?.value = 'ok';
+        const _el_80 = document.getElementById('filter-status-formations');
+        if (_el_80) _el_80.value = 'ok';
         renderFormationsMatrix();
     });
     document.getElementById('fstat-card-warning')?.addEventListener('click', () => {
-        document.getElementById('filter-status-formations')?.value = 'warning';
+        const _el_81 = document.getElementById('filter-status-formations');
+        if (_el_81) _el_81.value = 'warning';
         renderFormationsMatrix();
     });
     document.getElementById('fstat-card-danger')?.addEventListener('click', () => {
-        document.getElementById('filter-status-formations')?.value = 'danger';
+        const _el_82 = document.getElementById('filter-status-formations');
+        if (_el_82) _el_82.value = 'danger';
         renderFormationsMatrix();
     });
 
