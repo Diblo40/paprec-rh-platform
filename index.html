@@ -42,8 +42,15 @@
             <button class="btn btn-outline btn-sm" onclick="openSettingsRHModal()" title="Paramètres Signataire RH & Agence">
                 <i class="fa-solid fa-gear"></i> Config. RH (<span id="nav-signataire-name">Emilie JAYAT</span>)
             </button>
-            <button class="btn btn-outline btn-sm" id="btn-export-all" title="Exporter toutes les données RH">
-                <i class="fa-solid fa-download"></i> Exporter (CSV)
+            <button class="btn btn-secondary btn-sm" onclick="exportFullDatabaseJSON()" title="Sauvegarder la base RH en fichier JSON">
+                <i class="fa-solid fa-cloud-arrow-down"></i> Sauvegarder (JSON)
+            </button>
+            <button class="btn btn-outline btn-sm" onclick="triggerImportJSON()" title="Restaurer une sauvegarde JSON">
+                <i class="fa-solid fa-cloud-arrow-up"></i> Restaurer (JSON)
+            </button>
+            <input type="file" id="import-json-file-input" style="display:none;" onchange="importFullDatabaseJSON(event)" accept=".json">
+            <button class="btn btn-outline btn-sm" id="btn-export-all" title="Exporter les données RH au format CSV">
+                <i class="fa-solid fa-file-excel"></i> Exporter (CSV)
             </button>
         </div>
     </header>

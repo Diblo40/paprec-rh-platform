@@ -2062,6 +2062,69 @@ function exportAllCSV() {
     document.body.removeChild(link);
 }
 
+// JSON Database Backup & Restore
+function exportFullDatabaseJSON() {
+    const data = {
+        version: '1.0',
+        timestamp: new Date().toISOString(),
+        settings: rhSettings,
+        employees: employees,
+        planning: planningData
+    };
+
+    const jsonStr = JSON.stringify(data, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Paprec_RH_Sauvegarde_Complete_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function triggerImportJSON() {
+    document.getElementById('import-json-file-input').click();
+}
+
+function importFullDatabaseJSON(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+        try {
+            const data = JSON.parse(evt.target.result);
+            if (data.employees && Array.isArray(data.employees)) {
+                employees = data.employees;
+                saveEmployeesToStorage();
+            }
+            if (data.planning) {
+                planningData = data.planning;
+                savePlanningToStorage();
+            }
+            if (data.settings) {
+                rhSettings = data.settings;
+                saveSettingsToStorage();
+                updateSettingsDisplay();
+            }
+
+            processEmployeesFormationsStatus();
+            updateStats();
+            renderPersonnel();
+            renderConges();
+            renderPlanning();
+            renderFormationsMatrix();
+
+            alert("Base de données RH restaurée avec succès !");
+        } catch (err) {
+            alert("Erreur lors de la lecture du fichier de sauvegarde JSON : " + err.message);
+        }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+}
+
 // Modals Management
 function closeModals() {
     document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
