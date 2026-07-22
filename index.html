@@ -68,7 +68,20 @@
                 <i class="fa-solid fa-triangle-exclamation" style="margin-right: 8px;"></i>
                 <strong>Attention Stockage Local :</strong> L'espace mémoire du navigateur est presque plein. Veuillez supprimer quelques anciens fichiers joints dans les dossiers salariés pour libérer de la mémoire.
             </div>
-            <button class="btn btn-outline btn-sm" style="color:#991b1b; border-color:#fecaca;" onclick="this.parentElement.parentElement.style.display='none'">Fermer</button>
+            <button class="btn btn-sm btn-outline" onclick="this.parentElement.parentElement.style.display='none'">Fermer</button>
+        </div>
+    </div>
+
+    <!-- Automatic Email Expiration Alert Banner (J-30 & Jour J) -->
+    <div id="auto-email-alert-banner" class="container" style="display: none; padding-bottom: 0;">
+        <div style="background: #fff7ed; border: 2px solid #ea580c; color: #c2410c; padding: 12px 18px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; box-shadow: var(--shadow-sm);">
+            <div id="auto-alert-text" style="font-size: 0.9rem;">
+                <i class="fa-solid fa-bell-concierge" style="margin-right: 8px; font-size: 1.1rem;"></i>
+                <strong>Alerte Automatique RH (J-30 & Jour J) :</strong> Des formations arrivent à échéance !
+            </div>
+            <button class="btn btn-warning btn-sm" onclick="openAutoEmailAlertsModal()" style="background: #ea580c; color: white; border: none; white-space: nowrap;">
+                <i class="fa-solid fa-envelope"></i> Consulter & Envoyer Mails (J-30 / Jour J)
+            </button>
         </div>
     </div>
 
@@ -1149,6 +1162,27 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline btn-close-modal">Annuler</button>
                 <button type="button" class="btn btn-primary" onclick="savePlanningCell()">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL ALERTES AUTOMATIQUES EMAIL (J-30 & JOUR J) -->
+    <div class="modal-overlay" id="modal-auto-email-alerts">
+        <div class="modal-content" style="max-width: 780px;">
+            <div class="modal-header" style="background: #fff7ed; border-bottom: 1px solid #fed7aa;">
+                <div>
+                    <h3 style="color: #c2410c;"><i class="fa-solid fa-clock-rotate-left"></i> Centre d'Alertes Automatiques Email (J-30 & Jour J)</h3>
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">Formations arrivant à échéance à 30 jours (J-30) ou expirées aujourd'hui (Jour J)</p>
+                </div>
+                <button class="btn-icon btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                <div id="auto-email-alerts-list">
+                    <!-- Injected by JS -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline btn-close-modal">Fermer</button>
             </div>
         </div>
     </div>

@@ -1,0 +1,64 @@
+name: Daily Training Expiration Notifier (J-30 & Jour J)
+
+on:
+  schedule:
+    # Run every day at 08:00 AM UTC
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+
+jobs:
+  check-expirations:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Scan Expiration Dates (J-30 & Jour J)
+        run: |
+          python -c "
+          import json, re, datetime
+
+          with open('data.js', 'r', encoding='utf-8') as f:
+              text = f.read()
+
+          match = re.search(r'const INITIAL_EMPLOYEES = (\[.*?\]);', text, re.DOTALL)
+          if not match:
+              print('Data parse error')
+              exit(0)
+
+          employees = json.loads(match.group(1))
+          now = datetime.date.today()
+
+          alerts_j30 = []
+          alerts_jour_j = []
+
+          for emp in employees:
+              for f in emp.get('formations', []):
+                  exp_str = f.get('expiration')
+                  if exp_str:
+                      try:
+                          exp_date = datetime.datetime.strptime(exp_str, '%Y-%m-%d').date()
+                          diff = (exp_date - now).days
+                          form_name = f.get('name', f.get('id'))
+                          
+                          if 0 < diff <= 30:
+                              alerts_j30.append(f'{emp[\"prenom\"]} {emp[\"nom\"]} - {form_name} ({diff} jours restants)')
+                          elif diff <= 0:
+                              alerts_jour_j.append(f'{emp[\"prenom\"]} {emp[\"nom\"]} - {form_name} (Périmée depuis {abs(diff)} jours)')
+                      except Exception:
+                          pass
+
+          print(f'=== RAPPORT AUTOMATIQUE QUOTIDIEN (J-30 & JOUR J) - {now} ===')
+          print(f'🚨 FORMATIONS EXPIRÉES AU JOUR J ({len(alerts_jour_j)}):')
+          for a in alerts_jour_j:
+              print(f' - {a}')
+
+          print(f'\n🔔 FORMATIONS EN ÉCHÉANCE À J-30 ({len(alerts_j30)}):')
+          for a in alerts_j30:
+              print(f' - {a}')
+          "

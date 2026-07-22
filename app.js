@@ -2345,3 +2345,185 @@ if (document.readyState === 'loading') {
 } else {
     init();
 }
+
+
+// Automatic Email Expiration Alerts (J-30 & Jour J)
+function getExpirationAlertsData() {
+    const alertsJ30 = [];
+    const alertsJourJ = [];
+    const now = new Date();
+    now.setHours(0,0,0,0);
+
+    employees.forEach(emp => {
+        (emp.formations || []).forEach(f => {
+            if (f.expiration) {
+                const expD = new Date(f.expiration);
+                expD.setHours(0,0,0,0);
+                if (!isNaN(expD.getTime())) {
+                    const diffDays = Math.ceil((expD - now) / (1000 * 60 * 60 * 24));
+                    const def = FORMATION_DEFINITIONS.find(d => d.id === f.id);
+                    const formName = def ? def.name : (f.name || f.id);
+
+                    if (diffDays > 0 && diffDays <= 30) {
+                        alertsJ30.push({ emp, f, formName, diffDays });
+                    } else if (diffDays <= 0) {
+                        alertsJourJ.push({ emp, f, formName, diffDays });
+                    }
+                }
+            }
+        });
+    });
+
+    return { alertsJ30, alertsJourJ };
+}
+
+function checkAutomaticExpirationAlerts() {
+    const { alertsJ30, alertsJourJ } = getExpirationAlertsData();
+    const banner = document.getElementById('auto-email-alert-banner');
+    const textEl = document.getElementById('auto-alert-text');
+
+    if (!banner || !textEl) return;
+
+    if (alertsJ30.length > 0 || alertsJourJ.length > 0) {
+        banner.style.display = 'block';
+        textEl.innerHTML = `
+            <i class="fa-solid fa-bell-concierge" style="margin-right: 8px; font-size: 1.1rem; color: #ea580c;"></i>
+            <strong>ALERTE AUTOMATIQUE ÉCHÉANCES FORMATIONS :</strong> 
+            <span style="background: #fef2f2; color: #dc2626; padding: 2px 8px; border-radius: 4px; font-weight:700; margin: 0 4px;">🚨 ${alertsJourJ.length} Jour J (Périmée)</span> et 
+            <span style="background: #fffbeb; color: #d97706; padding: 2px 8px; border-radius: 4px; font-weight:700; margin: 0 4px;">🔔 ${alertsJ30.length} à J-30 (30 Jours)</span>.
+        `;
+    } else {
+        banner.style.display = 'none';
+    }
+}
+
+function openAutoEmailAlertsModal() {
+    const { alertsJ30, alertsJourJ } = getExpirationAlertsData();
+    const container = document.getElementById('auto-email-alerts-list');
+    if (!container) return;
+
+    let html = '';
+
+    if (alertsJourJ.length > 0) {
+        html += `
+            <div style="margin-bottom: 24px;">
+                <h4 style="color: #dc2626; border-bottom: 2px solid #fecaca; padding-bottom: 6px; margin-bottom: 12px;">
+                    <i class="fa-solid fa-circle-exclamation"></i> 🚨 Alertes Jour J : Formations Expirées (${alertsJourJ.length})
+                </h4>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+        `;
+        alertsJourJ.forEach(item => {
+            const expDateFR = formatDateFR(item.f.expiration);
+            const daysText = item.diffDays === 0 ? "Expiré AUJOURD'HUI" : `Périmé depuis ${Math.abs(item.diffDays)} jour(s)`;
+            html += `
+                <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px; display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+                    <div>
+                        <strong style="color: #991b1b; font-size: 0.95rem;">${item.emp.prenom} ${item.emp.nom}</strong> <span style="font-size: 0.8rem; color: #7f1d1d;">(${item.emp.role || item.emp.metier})</span>
+                        <div style="font-size: 0.85rem; color: #b91c1c; margin-top: 2px;">
+                            • Formation : <strong>${item.formName}</strong><br>
+                            • Expiration : <strong>${expDateFR}</strong> (${daysText})
+                        </div>
+                    </div>
+                    <button class="btn btn-sm" style="background: #dc2626; color: white; border: none; white-space: nowrap;" onclick="sendSingleAlertEmail('${item.emp.id}', '${item.f.id}', 'JOUR_J')">
+                        <i class="fa-solid fa-paper-plane"></i> Mail Urgent Jour J
+                    </button>
+                </div>
+            `;
+        });
+        html += `</div></div>`;
+    }
+
+    if (alertsJ30.length > 0) {
+        html += `
+            <div style="margin-bottom: 20px;">
+                <h4 style="color: #d97706; border-bottom: 2px solid #fef3c7; padding-bottom: 6px; margin-bottom: 12px;">
+                    <i class="fa-solid fa-clock"></i> 🔔 Alertes J-30 : Échéance à 30 Jours ou Moins (${alertsJ30.length})
+                </h4>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+        `;
+        alertsJ30.forEach(item => {
+            const expDateFR = formatDateFR(item.f.expiration);
+            html += `
+                <div style="background: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; padding: 12px; display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+                    <div>
+                        <strong style="color: #92400e; font-size: 0.95rem;">${item.emp.prenom} ${item.emp.nom}</strong> <span style="font-size: 0.8rem; color: #b45309;">(${item.emp.role || item.emp.metier})</span>
+                        <div style="font-size: 0.85rem; color: #b45309; margin-top: 2px;">
+                            • Formation : <strong>${item.formName}</strong><br>
+                            • Expiration : <strong>${expDateFR}</strong> (${item.diffDays} jour(s) restant(s))
+                        </div>
+                    </div>
+                    <button class="btn btn-sm" style="background: #d97706; color: white; border: none; white-space: nowrap;" onclick="sendSingleAlertEmail('${item.emp.id}', '${item.f.id}', 'J30')">
+                        <i class="fa-solid fa-paper-plane"></i> Mail Rappel J-30
+                    </button>
+                </div>
+            `;
+        });
+        html += `</div></div>`;
+    }
+
+    if (alertsJourJ.length === 0 && alertsJ30.length === 0) {
+        html = `<div style="text-align: center; padding: 30px; color: var(--secondary); font-weight: 600;">
+            <i class="fa-solid fa-circle-check" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
+            Toutes les formations QSE sont à jour ! Aucune alerte J-30 ou Jour J détectée.
+        </div>`;
+    }
+
+    container.innerHTML = html;
+    document.getElementById('modal-auto-email-alerts')?.classList.add('active');
+}
+
+function sendSingleAlertEmail(empId, formationId, alertType) {
+    const emp = employees.find(e => e.id === empId);
+    if (!emp) return;
+
+    const def = FORMATION_DEFINITIONS.find(d => d.id === formationId);
+    const formName = def ? def.name : formationId;
+    const f = (emp.formations || []).find(item => item.id === formationId);
+
+    const expDateStr = f && f.expiration ? formatDateFR(f.expiration) : 'Prochainement';
+    const recipientEmail = emp.email || 'Emilie.JAYAT@paprec.com';
+
+    let subject = '';
+    let body = '';
+
+    if (alertType === 'JOUR_J') {
+        subject = encodeURIComponent(`[URGENT JOUR-J PAPREC RH] Échéance Formation Dépassée - ${formName} (${emp.prenom} ${emp.nom})`);
+        body = encodeURIComponent(
+`Bonjour ${emp.prenom},
+
+🚨 ALERTE URGENTE JOUR-J (FORMATION PÉRIMÉE) 🚨
+
+Votre formation / habilitation QSE suivante est arrivée à échéance au JOUR J :
+
+• Formation / Habilitation : ${formName}
+• Salarié concerné : ${emp.prenom} ${emp.nom} (${emp.role || emp.metier})
+• Date d'échéance : ${expDateStr}
+• Statut : PÉRIMÉE - Recyclage obligatoire immédiat
+
+Merci de contacter IMPÉRATIVEMENT le service RH & QSE (${rhSettings.signataireNom}) afin d'organiser votre session de recyclage en urgence.
+
+Cordialement,
+Service RH & QSE ${rhSettings.agenceNom}`
+        );
+    } else {
+        subject = encodeURIComponent(`[RAPPEL J-30 PAPREC RH] Échéance Formation dans 30 jours - ${formName} (${emp.prenom} ${emp.nom})`);
+        body = encodeURIComponent(
+`Bonjour ${emp.prenom},
+
+🔔 RAPPEL AUTOMATIQUE À 30 JOURS (J-30) 🔔
+
+Votre formation / habilitation QSE suivante arrivera à échéance dans 30 jours :
+
+• Formation / Habilitation : ${formName}
+• Salarié concerné : ${emp.prenom} ${emp.nom} (${emp.role || emp.metier})
+• Date d'échéance / Recyclage : ${expDateStr}
+
+Afin d'éviter tout retard ou péremption, merci de prendre contact dès maintenant avec la Responsable RH & QSE (${rhSettings.signataireNom}) pour planifier votre session de recyclage.
+
+Cordialement,
+Service RH & QSE ${rhSettings.agenceNom}`
+        );
+    }
+
+    window.location.href = `mailto:${recipientEmail}?subject=${subject}&body=${body}`;
+}
