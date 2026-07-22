@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plateforme RH & Formations - PAPREC Laroque d'Olmes</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- FontAwesome icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+    <!-- Header / Navbar -->
+    <header class="navbar">
+        <div class="brand">
+            <div class="brand-logo">PAPREC</div>
+            <div class="brand-text">
+                <h1>Plateforme RH & Formations</h1>
+                <p>Agence Laroque d'Olmes - Paprec Sud Ouest</p>
+            </div>
+        </div>
+
+        <nav class="nav-tabs">
+            <button class="nav-tab active" data-tab="tab-personnel">
+                <i class="fa-solid fa-users"></i> Personnel & Dossiers
+            </button>
+            <button class="nav-tab" data-tab="tab-conges">
+                <i class="fa-solid fa-calendar-days"></i> Congés & Absences
+            </button>
+            <button class="nav-tab" data-tab="tab-planning">
+                <i class="fa-solid fa-clock-rotate-left"></i> Planning Métiers
+            </button>
+            <button class="nav-tab" data-tab="tab-documents">
+                <i class="fa-solid fa-folder-open"></i> Documents, Fiches & Procédures RH
+            </button>
+            <button class="nav-tab" data-tab="tab-formations">
+                <i class="fa-solid fa-graduation-cap"></i> Formations QSE
+            </button>
+        </nav>
+
+        <div class="nav-actions">
+            <button class="btn btn-outline btn-sm" onclick="openSettingsRHModal()" title="Paramètres Signataire RH & Agence">
+                <i class="fa-solid fa-gear"></i> Config. RH (<span id="nav-signataire-name">Emilie JAYAT</span>)
+            </button>
+            <button class="btn btn-outline btn-sm" id="btn-export-all" title="Exporter toutes les données RH">
+                <i class="fa-solid fa-download"></i> Exporter (CSV)
+            </button>
+        </div>
+    </header>
+
+    <!-- Storage Alert Bar -->
+    <div id="storage-warning-bar" class="container" style="display: none; padding-bottom: 0;">
+        <div class="storage-alert-bar">
+            <div>
+                <i class="fa-solid fa-triangle-exclamation" style="margin-right: 8px;"></i>
+                <strong>Attention Stockage Local :</strong> L'espace mémoire du navigateur est presque plein. Veuillez supprimer quelques anciens fichiers joints dans les dossiers salariés pour libérer de la mémoire.
+            </div>
+            <button class="btn btn-outline btn-sm" style="color:#991b1b; border-color:#fecaca;" onclick="this.parentElement.parentElement.style.display='none'">Fermer</button>
+        </div>
+    </div>
+
+    <!-- Container Content -->
+    <main class="container">
+
+        <!-- ================= TAB 1: PERSONNEL & DOSSIERS RH ================= -->
+        <section id="tab-personnel" class="tab-content active">
+            <!-- Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-info">
+                        <h3 id="stat-total-emp">15</h3>
+                        <p>Total Effectif Agence</p>
+                    </div>
+                    <div class="stat-icon primary"><i class="fa-solid fa-user-group"></i></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-info">
+                        <h3 id="stat-cdi-emp">8</h3>
+                        <p>Salariés en CDI</p>
+                    </div>
+                    <div class="stat-icon secondary"><i class="fa-solid fa-user-check"></i></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-info">
+                        <h3 id="stat-interim-emp">7</h3>
+                        <p>Intérimaires & Renforts</p>
+                    </div>
+                    <div class="stat-icon warning"><i class="fa-solid fa-user-clock"></i></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-info">
+                        <h3 id="stat-docs-total">30</h3>
+                        <p>Documents RH Joints</p>
+                    </div>
+                    <div class="stat-icon danger"><i class="fa-solid fa-file-pdf"></i></div>
+                </div>
+            </div>
+
+            <!-- Filter Controls -->
+            <div class="control-bar">
+                <div class="search-box">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" id="search-personnel" placeholder="Rechercher un salarié (Nom, prénom, rôle)...">
+                </div>
+                <div class="filters-group">
+                    <select id="filter-metier-personnel" class="form-select">
+                        <option value="all">Tous les corps de métiers</option>
+                        <option value="Chauffeurs">Chauffeurs (PL / SPL)</option>
+                        <option value="Bascule & Accueil">Bascule & Accueil</option>
+                        <option value="Bureaux / Secrétariat">Bureaux & Admin</option>
+                        <option value="Exploitation / DALE">Exploitation / DALE</option>
+                        <option value="Exploitation / Tri">Exploitation / Tri</option>
+                    </select>
+                    <select id="filter-contrat-personnel" class="form-select">
+                        <option value="all">Tous les contrats</option>
+                        <option value="CDI">CDI</option>
+                        <option value="Intérim">Intérim</option>
+                    </select>
+                    <button class="btn btn-primary" id="btn-open-add-emp">
+                        <i class="fa-solid fa-user-plus"></i> Nouveau Salarié
+                    </button>
+                </div>
+            </div>
+
+            <!-- Employee Grid / Cards View -->
+            <div class="emp-grid" id="emp-cards-container">
+                <!-- Injected via JavaScript -->
+            </div>
+        </section>
+
+        <!-- ================= TAB 2: GESTION DES CONGÉS ================= -->
+        <section id="tab-conges" class="tab-content">
+            <div class="control-bar">
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    <label style="font-weight: 700; color: var(--primary);">Exercice / Année :</label>
+                    <select id="conges-year-select" class="form-select" style="font-weight: 700; font-size: 1rem;">
+                        <option value="2024">2024 - 2025</option>
+                        <option value="2025">2025 - 2026</option>
+                        <option value="2026" selected>2026 - 2027</option>
+                        <option value="2027">2027 - 2028</option>
+                    </select>
+                    <div class="view-switch-group">
+                        <button class="view-switch-btn active" id="btn-conges-view-table">
+                            <i class="fa-solid fa-list-check"></i> Vue Synthèse
+                        </button>
+                        <button class="view-switch-btn" id="btn-conges-view-calendar">
+                            <i class="fa-solid fa-calendar-days"></i> Vue Calendrier 3 Mois
+                        </button>
+                    </div>
+                </div>
+                <div class="filters-group">
+                    <select id="filter-metier-conges" class="form-select">
+                        <option value="all">Tous les métiers</option>
+                        <option value="Chauffeurs">Chauffeurs</option>
+                        <option value="Bascule & Accueil">Bascule</option>
+                        <option value="Bureaux / Secrétariat">Bureaux</option>
+                        <option value="Exploitation / DALE">Exploitation DALE</option>
+                    </select>
+                    <button class="btn btn-outline" onclick="openCongesNoticeModal()">
+                        <i class="fa-solid fa-circle-info"></i> Notice & Calcul Congés
+                    </button>
+                    <button class="btn btn-secondary" id="btn-open-add-conge">
+                        <i class="fa-solid fa-calendar-plus"></i> Saisir un Congé
+                    </button>
+                </div>
+            </div>
+
+            <!-- Table View -->
+            <div class="table-card" id="conges-view-table-container">
+                <div class="table-responsive">
+                    <table class="custom-table" id="conges-table">
+                        <thead>
+                            <tr>
+                                <th>Collaborateur</th>
+                                <th>Métier / Rôle</th>
+                                <th style="text-align: center;">Solde CP</th>
+                                <th style="text-align: center;">Solde RTT</th>
+                                <th>Périodes de Congés Enregistrées</th>
+                                <th style="text-align: right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="conges-table-body">
+                            <!-- Injected by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 3-Month Rolling Calendar View -->
+            <div class="table-card" id="conges-view-calendar-container" style="display: none;">
+                <div style="padding: 16px 20px; background: #f8fafc; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h3 id="conges-calendar-title" style="color: var(--primary); font-size: 1.15rem;">
+                            <i class="fa-solid fa-calendar-week"></i> Planning Prévisionnel des Congés — Vue sur 3 Mois Consécutifs
+                        </h3>
+                        <p style="font-size: 0.8rem; color: var(--text-muted);">Format paysage propre pour l'affichage sur site (0 page blanche)</p>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-outline btn-sm" onclick="changeCongesQuarter(-1)"><i class="fa-solid fa-chevron-left"></i> Trimestre Précédent</button>
+                        <button class="btn btn-outline btn-sm" onclick="changeCongesQuarter(1)">Trimestre Suivant <i class="fa-solid fa-chevron-right"></i></button>
+                        <button class="btn btn-primary btn-sm" onclick="printCongesCalendarClean()">
+                            <i class="fa-solid fa-print"></i> Imprimer le Planning 3 Mois
+                        </button>
+                    </div>
+                </div>
+
+                <div id="conges-3months-grid" style="display: flex; flex-direction: column; gap: 24px; padding: 20px;">
+                    <!-- 3 Monthly Calendars Injected by JS -->
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= TAB 3: PLANNING INTERACTIF & HEBDOMADAIRE ================= -->
+        <section id="tab-planning" class="tab-content">
+            <div class="control-bar">
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    <label style="font-weight: 700; color: var(--primary);">Semaine :</label>
+                    <input type="week" id="planning-week-picker" class="form-input" value="2026-W30">
+                    <button class="btn btn-outline btn-sm" id="btn-today-week">Cette semaine</button>
+                </div>
+                <div class="filters-group">
+                    <select id="filter-metier-planning" class="form-select">
+                        <option value="all">Tous les corps de métiers</option>
+                        <option value="Chauffeurs">Chauffeurs (PL / SPL)</option>
+                        <option value="Bascule & Accueil">Bascule & Accueil</option>
+                        <option value="Bureaux / Secrétariat">Bureaux & Admin</option>
+                        <option value="Exploitation / DALE">Exploitation & DALE</option>
+                        <option value="Exploitation / Tri">Exploitation & Tri</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="printWeeklyPlanningClean()">
+                        <i class="fa-solid fa-print"></i> Imprimer le Planning Semaine
+                    </button>
+                </div>
+            </div>
+
+            <!-- Notice Connection with Congés -->
+            <div style="background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 0.88rem; display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                    <i class="fa-solid fa-link" style="margin-right: 8px;"></i>
+                    <strong>Connexion Automatique avec les Congés :</strong> Les salariés ayant un congé ou arrêt validé sur la période sont automatiquement marqués en <strong>CONGÉ (CP / RTT / Maladie)</strong> sur le planning.
+                </div>
+                <span class="badge badge-primary">Synchronisé</span>
+            </div>
+
+            <!-- Table Week Grid -->
+            <div class="table-card" id="planning-view-table-container">
+                <div class="planning-table-container">
+                    <table class="planning-table" id="planning-main-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 220px;">Collaborateur & Rôle</th>
+                                <th>Lundi</th>
+                                <th>Mardi</th>
+                                <th>Mercredi</th>
+                                <th>Jeudi</th>
+                                <th>Vendredi</th>
+                                <th>Samedi</th>
+                                <th>Dimanche</th>
+                            </tr>
+                        </thead>
+                        <tbody id="planning-table-body">
+                            <!-- Injected by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= TAB 4: DOCUMENTS, FICHES & PROCÉDURES RH ================= -->
+        <section id="tab-documents" class="tab-content">
+            <!-- SECTION 1: FICHE DE POSTE CHAUFFEUR DIGITALISÉE & FICHIER SOURCE -->
+            <h2 style="font-size: 1.3rem; margin-bottom: 16px; color: var(--primary);">
+                <i class="fa-solid fa-truck-front"></i> Fiche de Poste Chauffeur Digitalisée (Procédure Paprec DE39 - Version 6)
+            </h2>
+            <div class="doc-card" style="margin-bottom: 32px; border: 2px solid var(--primary-light);">
+                <div class="doc-card-header">
+                    <div class="doc-card-icon" style="background: var(--primary); color: white;"><i class="fa-solid fa-truck-steering"></i></div>
+                    <div>
+                        <h4 style="font-size: 1.1rem; color: var(--primary);">Fiche de Poste Chauffeur (DE39 - Modèle Officiel Paprec)</h4>
+                        <span class="badge badge-primary">Fichier Excel d'Origine & Formulaire Remplissable Impression 1 Page</span>
+                    </div>
+                </div>
+                <p>Contient l'intégralité des textes officiels de la fiche de poste Chauffeur (Missions de rotation/collecte, entretien camion/bennes, SMQSE, permis PL/SPL, FIMO/FCO, CACES R490 Grue et consignes de sécurité).</p>
+                <div style="display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap;">
+                    <button class="btn btn-primary" onclick="openChauffeurFicheEditor()">
+                        <i class="fa-solid fa-pen-to-square"></i> Remplir & Imprimer en Ligne (Format 1 Page)
+                    </button>
+                    <a href="assets/docs/DE39_-_V6_-_Fiche_de_poste_-_Laroque_d_Olmes.xlsx" download class="btn btn-outline">
+                        <i class="fa-solid fa-file-excel" style="color: #107c41;"></i> Télécharger Matrice Excel DE39 (.xlsx)
+                    </a>
+                </div>
+            </div>
+
+            <!-- SECTION 2: INTÉGRATION & ACCUEIL AU POSTE -->
+            <h2 style="font-size: 1.3rem; margin-bottom: 16px; color: var(--primary);">
+                <i class="fa-solid fa-user-shield"></i> Livret d'Accueil au Poste & Intégration (QSE Onboarding)
+            </h2>
+            <div class="doc-card" style="margin-bottom: 32px; border: 2px solid var(--secondary-light);">
+                <div class="doc-card-header">
+                    <div class="doc-card-icon" style="background: var(--secondary); color: white;"><i class="fa-solid fa-id-card-clip"></i></div>
+                    <div>
+                        <h4 style="font-size: 1.1rem; color: var(--secondary);">Fiche d'Accueil au Poste & Checklist d'Émargement</h4>
+                        <span class="badge badge-secondary">Modèle Issu du Dossier RH Paprec</span>
+                    </div>
+                </div>
+                <p>Saisie préalable et émargement lors de la prise de poste d'un embauché ou d'un intérimaire (Livret d'accueil, remise des EPI, visite usine, consignes incendie et parrainage).</p>
+                <div style="display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap;">
+                    <button class="btn btn-secondary" onclick="openAccueilEditorModal()">
+                        <i class="fa-solid fa-pen-to-square"></i> Remplir & Imprimer Fiche d'Accueil
+                    </button>
+                    <a href="assets/docs/Dossier_d_embauche.doc" download class="btn btn-outline">
+                        <i class="fa-solid fa-file-word" style="color: #2b579a;"></i> Télécharger Dossier d'Embauche (.doc)
+                    </a>
+                </div>
+            </div>
+
+            <!-- SECTION 3: ENTRETIENS RH (DOCUMENTS WORDS OFFICIELS DU ZIP PAPREC) -->
+            <h2 style="font-size: 1.3rem; margin-bottom: 16px; color: var(--primary);">
+                <i class="fa-solid fa-file-word" style="color: #2b579a;"></i> Documents Officiels Word des Entretiens RH (Zip Ressources Humaines)
+            </h2>
+            <div class="doc-templates-grid" style="margin-bottom: 36px;">
+                <!-- EAE OUVRIERS / EMPLOYÉS -->
+                <div class="doc-card">
+                    <div class="doc-card-header">
+                        <div class="doc-card-icon" style="background:#e6f0fa; color:#2b579a;"><i class="fa-solid fa-file-word"></i></div>
+                        <div>
+                            <h4>EAE Ouvriers / Employés (Word Officiel)</h4>
+                            <span class="badge badge-primary">Formulaire Word Origine ZIP</span>
+                        </div>
+                    </div>
+                    <p>Le document Word officiel complet d'évaluation annuelle Paprec Groupe pour les Ouvriers et Employés.</p>
+                    <div style="display:flex; flex-direction:column; gap:8px; margin-top:12px;">
+                        <a href="assets/entretiens/EAE_EP_Formulaire_Ouvriers_Employes_PAPREC_2020.docx" download class="btn btn-primary btn-sm">
+                            <i class="fa-solid fa-download"></i> Télécharger Document Word (.docx)
+                        </a>
+                        <button class="btn btn-outline btn-sm" onclick="openEIEEditorModal()">
+                            <i class="fa-solid fa-pen-to-square"></i> Remplir & Imprimer en Ligne
+                        </button>
+                    </div>
+                </div>
+
+                <!-- EAE AM / CADRES -->
+                <div class="doc-card">
+                    <div class="doc-card-header">
+                        <div class="doc-card-icon" style="background:#e6f0fa; color:#2b579a;"><i class="fa-solid fa-file-word"></i></div>
+                        <div>
+                            <h4>EAE AM & Cadres (Word Officiel)</h4>
+                            <span class="badge badge-primary">Formulaire Word Origine ZIP</span>
+                        </div>
+                    </div>
+                    <p>Le document Word officiel d'évaluation annuelle Paprec pour Agents de Maîtrise et Cadres.</p>
+                    <div style="display:flex; flex-direction:column; gap:8px; margin-top:12px;">
+                        <a href="assets/entretiens/EAE_EP_Formulaire_AM_Cadres_PAPREC_2020.docx" download class="btn btn-primary btn-sm">
+                            <i class="fa-solid fa-download"></i> Télécharger Document Word (.docx)
+                        </a>
+                        <button class="btn btn-outline btn-sm" onclick="openEIEEditorModal()">
+                            <i class="fa-solid fa-pen-to-square"></i> Remplir & Imprimer en Ligne
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ENTRETIEN PROFESSIONNEL EP BIENNAL -->
+                <div class="doc-card">
+                    <div class="doc-card-header">
+                        <div class="doc-card-icon"><i class="fa-solid fa-briefcase"></i></div>
+                        <div>
+                            <h4>Entretien Professionnel (EP Biennal)</h4>
+                            <span class="badge badge-secondary">Obligation Légale Art. L. 6315-1</span>
+                        </div>
+                    </div>
+                    <p>Bilan obligatoire tous les 2 ans sur les perspectives d'évolution professionnelle et formations certifiantes.</p>
+                    <div style="display:flex; flex-direction:column; gap:8px; margin-top:12px;">
+                        <button class="btn btn-primary btn-sm" onclick="openEPEditorModal()">
+                            <i class="fa-solid fa-pen-to-square"></i> Remplir & Imprimer en Ligne
+                        </button>
+                        <a href="assets/entretiens/Note_Entretiens_Evaluation_Et_Professionnels_PAPREC.pdf" target="_blank" class="btn btn-outline btn-sm">
+                            <i class="fa-solid fa-file-pdf" style="color:#dc2626;"></i> Consulter Note RH Paprec (.pdf)
+                        </a>
+                    </div>
+                </div>
+
+                <!-- GUIDE PRÉPARATION ENTRETIEN -->
+                <div class="doc-card">
+                    <div class="doc-card-header">
+                        <div class="doc-card-icon" style="background:#fee2e2; color:#dc2626;"><i class="fa-solid fa-file-pdf"></i></div>
+                        <div>
+                            <h4>Guide de Préparation à l'Entretien</h4>
+                            <span class="badge badge-gray">Guide Manager & Salarié</span>
+                        </div>
+                    </div>
+                    <p>Notice et guide de préparation pratique aux entretiens d'évaluation et professionnels Paprec.</p>
+                    <div style="display:flex; flex-direction:column; gap:8px; margin-top:12px;">
+                        <a href="assets/entretiens/Guide_Preparation_Entretien_PAPREC.pdf" target="_blank" class="btn btn-secondary btn-sm">
+                            <i class="fa-solid fa-file-pdf"></i> Ouvrir / Imprimer Guide PDF
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- SECTION 5: FORMULAIRES RH LÉGAUX -->
+            <h2 style="font-size: 1.3rem; margin-bottom: 16px; color: var(--primary);">
+                <i class="fa-solid fa-print"></i> Formulaires RH Légaux Prêts à l'Impression
+            </h2>
+            <div class="doc-templates-grid">
+                <div class="doc-card">
+                    <div class="doc-card-header">
+                        <div class="doc-card-icon"><i class="fa-solid fa-hand-holding-dollar"></i></div>
+                        <div>
+                            <h4>Demande d'Acompte</h4>
+                            <span class="badge badge-primary">Code du travail (Art. L. 3242-1)</span>
+                        </div>
+                    </div>
+                    <p>Formulaire de demande d'acompte sur salaire avec montant et signature.</p>
+                    <button class="btn btn-primary btn-sm" onclick="openPrintableFormModal('acompte')">
+                        <i class="fa-solid fa-print"></i> Saisir & Imprimer
+                    </button>
+                </div>
+
+                <div class="doc-card">
+                    <div class="doc-card-header">
+                        <div class="doc-card-icon"><i class="fa-solid fa-money-bill-wave"></i></div>
+                        <div>
+                            <h4>Avance 13ème Mois</h4>
+                            <span class="badge badge-secondary">Accord d'Entreprise Paprec</span>
+                        </div>
+                    </div>
+                    <p>Formulaire de demande d'avance du 13ème mois (1er / 2ème tiers).</p>
+                    <button class="btn btn-primary btn-sm" onclick="openPrintableFormModal('13eme_mois')">
+                        <i class="fa-solid fa-print"></i> Saisir & Imprimer
+                    </button>
+                </div>
+
+                <div class="doc-card">
+                    <div class="doc-card-header">
+                        <div class="doc-card-icon"><i class="fa-solid fa-file-contract"></i></div>
+                        <div>
+                            <h4>Attestation d'Emploi</h4>
+                            <span class="badge badge-gray">Justificatif Officiel</span>
+                        </div>
+                    </div>
+                    <p>Attestation d'emploi signée par la Responsable RH (<span class="signataire-display-name">Emilie JAYAT</span>).</p>
+                    <button class="btn btn-primary btn-sm" onclick="openPrintableFormModal('attestation_emploi')">
+                        <i class="fa-solid fa-print"></i> Saisir & Imprimer
+                    </button>
+                </div>
+
+                <div class="doc-card">
+                    <div class="doc-card-header">
+                        <div class="doc-card-icon"><i class="fa-solid fa-shield-halved"></i></div>
+                        <div>
+                            <h4>Engagement de Confidentialité</h4>
+                            <span class="badge badge-warning">Sécurité & RGPD</span>
+                        </div>
+                    </div>
+                    <p>Engagement relatif au secret professionnel et à la sécurité des données Paprec.</p>
+                    <button class="btn btn-primary btn-sm" onclick="openPrintableFormModal('confidentialite')">
+                        <i class="fa-solid fa-print"></i> Saisir & Imprimer
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= TAB 5: FORMATIONS QSE ================= -->
+        <section id="tab-formations" class="tab-content">
+            <!-- Formations KPI Stats -->
+            <div class="stats-grid">
+                <div class="stat-card" id="fstat-card-total">
+                    <div class="stat-info">
+                        <h3 id="fstat-total">15</h3>
+                        <p>Total Collaborateurs</p>
+                    </div>
+                    <div class="stat-icon primary"><i class="fa-solid fa-users"></i></div>
+                </div>
+                <div class="stat-card" id="fstat-card-ok">
+                    <div class="stat-info">
+                        <h3 id="fstat-ok">1</h3>
+                        <p>100% Conformes</p>
+                    </div>
+                    <div class="stat-icon secondary"><i class="fa-solid fa-circle-check"></i></div>
+                </div>
+                <div class="stat-card" id="fstat-card-warning">
+                    <div class="stat-info">
+                        <h3 id="fstat-warning">5</h3>
+                        <p>Recyclage &lt; 90j</p>
+                    </div>
+                    <div class="stat-icon warning"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                </div>
+                <div class="stat-card" id="fstat-card-danger">
+                    <div class="stat-info">
+                        <h3 id="fstat-danger">14</h3>
+                        <p>Périmés / Urgents</p>
+                    </div>
+                    <div class="stat-icon danger"><i class="fa-solid fa-circle-xmark"></i></div>
+                </div>
+            </div>
+
+            <!-- Formations Controls -->
+            <div class="control-bar">
+                <div class="search-box">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" id="search-formations" placeholder="Rechercher collaborateur ou formation...">
+                </div>
+                <div class="filters-group">
+                    <select id="filter-family-formations" class="form-select">
+                        <option value="all">Toutes les sur-catégories</option>
+                        <option value="conduite">🚗 CONDUITE & ENGINS (9 colonnes : Permis, FIMO, CACES...)</option>
+                        <option value="securite">🛡️ SÉCURITÉ (6 colonnes : SST, EPI, Amiante...)</option>
+                        <option value="sante">🩺 SANTÉ (1 colonne : Visite Médicale SMR)</option>
+                    </select>
+                    <select id="filter-status-formations" class="form-select">
+                        <option value="all">Tous les statuts</option>
+                        <option value="danger">🔴 Périmé / Action requise</option>
+                        <option value="warning">🟠 Recyclage proche (&lt;90j)</option>
+                        <option value="ok">🟢 Conforme & A jour</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Formations Matrix Table View -->
+            <div class="table-card">
+                <div class="table-responsive">
+                    <table class="matrix-table" id="matrix-table-main">
+                        <thead>
+                            <tr id="matrix-super-header-row">
+                                <th colspan="3" class="sticky-col sticky-col-1" style="background:#e2e8f0; font-weight:800; font-size:0.85rem; border-right: 2px solid var(--border-color);">COLLABORATEURS & STATUT GLOBAL</th>
+                                <th colspan="9" class="super-cat-hdr cat-hdr-conduite col-group-conduite"><i class="fa-solid fa-truck"></i> 🚗 1. CONDUITE & ENGINS (9 COLONNES)</th>
+                                <th colspan="6" class="super-cat-hdr cat-hdr-securite col-group-securite"><i class="fa-solid fa-shield-halved"></i> 🛡️ 2. SÉCURITÉ (6 COLONNES)</th>
+                                <th colspan="1" class="super-cat-hdr cat-hdr-sante col-group-sante"><i class="fa-solid fa-notes-medical"></i> 🩺 3. SANTÉ (1 COLONNE)</th>
+                            </tr>
+                            <tr id="matrix-sub-header-row">
+                                <th class="sticky-col sticky-col-1">Collaborateur</th>
+                                <th class="sticky-col sticky-col-2">Contrat / Cat.</th>
+                                <th class="sticky-col sticky-col-3">Statut Global</th>
+                                <!-- Conduite & Engins (9) -->
+                                <th class="col-group-conduite">Permis (VL/PL)</th>
+                                <th class="col-group-conduite">FIMO / FCO</th>
+                                <th class="col-group-conduite">Carte Cond.</th>
+                                <th class="col-group-conduite">ADR</th>
+                                <th class="col-group-conduite">R490 Grue Auxiliaire</th>
+                                <th class="col-group-conduite">R489 Chariot Élévateur</th>
+                                <th class="col-group-conduite">R482.B1 Pelle</th>
+                                <th class="col-group-conduite">R482.C1 Chargeuse</th>
+                                <th class="col-group-conduite">Autorisation Cond.</th>
+                                <!-- Sécurité (6) -->
+                                <th class="col-group-securite">SST</th>
+                                <th class="col-group-securite">Incendie / EPI</th>
+                                <th class="col-group-securite">Formation EPI</th>
+                                <th class="col-group-securite">Hab. Élec. (NF C 18-510)</th>
+                                <th class="col-group-securite">Amiante SS4</th>
+                                <th class="col-group-securite">Risq. Chimiques N1/N2</th>
+                                <!-- Santé (1) -->
+                                <th class="col-group-sante">Visite Médicale (SMR)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="formations-matrix-tbody">
+                            <!-- Injected by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ================= MODALS D'ÉDITION PRÉALABLE AVANT IMPRESSION ================= -->
+
+    <!-- MODAL PARAMÈTRES SIGNATAIRE RH -->
+    <div class="modal-overlay" id="modal-settings-rh">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-gear"></i> Configuration Signataire RH</h3>
+                <button class="btn-icon btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group" style="margin-bottom: 14px;">
+                    <label>Nom & Prénom de la Responsable / Signataire RH :</label>
+                    <input type="text" id="settings-signataire-nom" class="form-input" value="Emilie JAYAT">
+                </div>
+                <div class="form-group" style="margin-bottom: 14px;">
+                    <label>Titre / Fonction :</label>
+                    <input type="text" id="settings-signataire-titre" class="form-input" value="Responsable RH & QSE - Agence Laroque d'Olmes">
+                </div>
+                <div class="form-group">
+                    <label>Nom de l'Établissement / Agence :</label>
+                    <input type="text" id="settings-agence-nom" class="form-input" value="Paprec Sud Ouest - Laroque d'Olmes">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline btn-close-modal">Annuler</button>
+                <button class="btn btn-primary" onclick="saveSettingsRH()">Enregistrer la Configuration</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL EDIT FICHE D'ACCUEIL AU POSTE -->
+    <div class="modal-overlay" id="modal-accueil-editor">
+        <div class="modal-content" style="max-width: 650px;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-user-shield"></i> Saisie Fiche d'Accueil au Poste</h3>
+                <button class="btn-icon btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group" style="margin-bottom: 14px;">
+                    <label>Sélectionner Salarié (ou saisir nom) :</label>
+                    <select id="acc-editor-emp" class="form-select" onchange="autoFillAccueilEditor(this.value)">
+                        <!-- Injected by JS -->
+                    </select>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Nom & Prénom du Nouvel Arrivant :</label>
+                        <input type="text" id="acc-editor-nom" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label>Date de Prise de Poste :</label>
+                        <input type="date" id="acc-editor-date" class="form-input" value="2026-07-22">
+                    </div>
+                    <div class="form-group">
+                        <label>Parrain / Formateur Référent :</label>
+                        <input type="text" id="acc-editor-parrain" class="form-input" value="Chef d'équipe Exploitation">
+                    </div>
+                    <div class="form-group">
+                        <label>Type de Contrat :</label>
+                        <select id="acc-editor-contrat" class="form-select">
+                            <option value="CDI">CDI</option>
+                            <option value="Intérim">Intérim / Renfort</option>
+                        </select>
+                    </div>
+                    <div class="form-group full">
+                        <label>EPI Remis & Matériels confiés :</label>
+                        <input type="text" id="acc-editor-epi" class="form-input" value="Casque, Chaussures S3, Gilet Haute Visibilité, Gants de protection.">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline btn-close-modal">Annuler</button>
+                <button class="btn btn-secondary" onclick="generateAndPrintAccueilFiche()"><i class="fa-solid fa-print"></i> Générer & Imprimer Fiche d'Accueil</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL EDIT EAE (ENTRETIEN ANNUEL PAPREC) -->
+    <div class="modal-overlay" id="modal-eie-editor">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-user-chart"></i> Saisie EAE (Entretien Annuel Paprec Groupe)</h3>
+                <button class="btn-icon btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group" style="margin-bottom: 14px;">
+                    <label>Sélectionner le Collaborateur Évalué :</label>
+                    <select id="eie-editor-emp" class="form-select" onchange="autoFillEIEEditor(this.value)">
+                        <!-- Injected by JS -->
+                    </select>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Nom & Prénom Salarié :</label>
+                        <input type="text" id="eie-editor-nom" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label>Période Évaluée :</label>
+                        <input type="text" id="eie-editor-periode" class="form-input" value="Exercice 2026">
+                    </div>
+                    <div class="form-group">
+                        <label>Qualité du Travail :</label>
+                        <select id="eie-q1" class="form-select">
+                            <option value="B">B = Adapté aux exigences</option>
+                            <option value="A">A = Supérieur aux attentes</option>
+                            <option value="C">C = À améliorer</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Respect Sécurité / QSE :</label>
+                        <select id="eie-q2" class="form-select">
+                            <option value="A">A = Supérieur aux attentes</option>
+                            <option value="B">B = Adapté aux exigences</option>
+                            <option value="C">C = À améliorer</option>
+                        </select>
+                    </div>
+                    <div class="form-group full">
+                        <label>Bilan Général & Appréciations du Manager :</label>
+                        <input type="text" id="eie-editor-pointsforts" class="form-input" value="Salarié très sérieux, autonome et soucieux de la sécurité du matériel et des consignes Paprec.">
+                    </div>
+                    <div class="form-group full">
+                        <label>Objectifs Fixés pour l'Année À Venir :</label>
+                        <input type="text" id="eie-editor-objectifs" class="form-input" value="Maintenir la conformité QSE et accompagner les nouveaux chauffeurs du site.">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline btn-close-modal">Annuler</button>
+                <button class="btn btn-primary" onclick="generateAndPrintEIE()"><i class="fa-solid fa-print"></i> Générer & Imprimer EAE Paprec</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL EDIT ENTRETIEN PROFESSIONNEL (EP - OBLIGATION LÉGALE 2 ANS) -->
+    <div class="modal-overlay" id="modal-ep-editor">
+        <div class="modal-content" style="max-width: 650px;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-briefcase"></i> Saisie Entretien Professionnel (EP - Leg. 2 ans)</h3>
+                <button class="btn-icon btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group" style="margin-bottom: 14px;">
+                    <label>Sélectionner le Collaborateur :</label>
+                    <select id="ep-editor-emp" class="form-select" onchange="autoFillEPEditor(this.value)">
+                        <!-- Injected by JS -->
+                    </select>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Nom & Prénom Salarié :</label>
+                        <input type="text" id="ep-editor-nom" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label>Date de l'Entretien :</label>
+                        <input type="date" id="ep-editor-date" class="form-input" value="2026-07-22">
+                    </div>
+                    <div class="form-group full">
+                        <label>Perspectives d'Évolution & Souhaits de Carrière :</label>
+                        <input type="text" id="ep-editor-souhaits" class="form-input" value="Souhaite évoluer vers la conduite d'engins R482 ou le permis CE (Super Lourds).">
+                    </div>
+                    <div class="form-group full">
+                        <label>Formations Certifiantes & Habilitations Prévues :</label>
+                        <input type="text" id="ep-editor-formations" class="form-input" value="Recyclage FIMO/FCO et formation CACES R490 Grue Auxiliaire.">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline btn-close-modal">Annuler</button>
+                <button class="btn btn-primary" onclick="generateAndPrintEP()"><i class="fa-solid fa-print"></i> Générer & Imprimer EP</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL EDIT FICHE DE POSTE CHAUFFEUR DE39 -->
+    <div class="modal-overlay" id="modal-fiche-chauffeur-editor">
+        <div class="modal-content" style="max-width: 740px;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-truck-steering"></i> Saisie Fiche de Poste Chauffeur (DE39 - Version 6)</h3>
+                <button class="btn-icon btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label style="font-weight: 700; color: var(--primary);">Sélectionner le Chauffeur :</label>
+                    <select id="ch-editor-emp" class="form-select" onchange="autoFillChauffeurEditor(this.value)">
+                        <!-- Injected by JS -->
+                    </select>
+                </div>
+
+                <!-- BLOCK 1: INFO GÉNÉRALE -->
+                <h4 style="color: var(--primary); font-size: 0.95rem; margin-bottom: 10px; border-bottom: 2px solid var(--primary-light); padding-bottom: 4px;">
+                    <i class="fa-solid fa-user"></i> 1. Informations Générales
+                </h4>
+                <div class="form-grid" style="margin-bottom: 20px;">
+                    <div class="form-group">
+                        <label>Nom *</label>
+                        <input type="text" id="ch-editor-nom" class="form-input" placeholder="ex: DUPONT">
+                    </div>
+                    <div class="form-group">
+                        <label>Prénom *</label>
+                        <input type="text" id="ch-editor-prenom" class="form-input" placeholder="ex: Jean">
+                    </div>
+                    <div class="form-group">
+                        <label>Fonction *</label>
+                        <input type="text" id="ch-editor-fonction" class="form-input" value="Chauffeur PL / SPL Ampliroll">
+                    </div>
+                    <div class="form-group">
+                        <label>Affectation *</label>
+                        <input type="text" id="ch-editor-affectation" class="form-input" value="Paprec Sud Ouest - Agence Laroque d'Olmes">
+                    </div>
+                </div>
+
+                <!-- BLOCK 2: TYPE DE PERMIS -->
+                <h4 style="color: var(--primary); font-size: 0.95rem; margin-bottom: 10px; border-bottom: 2px solid var(--primary-light); padding-bottom: 4px;">
+                    <i class="fa-solid fa-id-card"></i> 2. Permis de Conduire & Habilitations
+                </h4>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Type de Permis :</label>
+                        <input type="text" id="ch-editor-permis-type" class="form-input" value="Permis Poids Lourds / Super Lourds">
+                    </div>
+                    <div class="form-group">
+                        <label>Catégorie :</label>
+                        <select id="ch-editor-permis-cat" class="form-select">
+                            <option value="Permis CE (Super Lourds)">Permis CE (Super Lourds)</option>
+                            <option value="Permis C (Poids Lourds)">Permis C (Poids Lourds)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Validité (Exp. FCO / Médicale) :</label>
+                        <input type="date" id="ch-editor-permis-validite" class="form-input" value="2028-06-15">
+                    </div>
+                    <div class="form-group">
+                        <label>Date d'obtention du permis :</label>
+                        <input type="date" id="ch-editor-permis-date-obt" class="form-input" value="2018-04-10">
+                    </div>
+                    <div class="form-group">
+                        <label>Organisme de formation :</label>
+                        <input type="text" id="ch-editor-permis-organisme" class="form-input" value="AFTRAL / ECF">
+                    </div>
+                    <div class="form-group">
+                        <label>Autorisation délivrée le :</label>
+                        <input type="date" id="ch-editor-permis-date-auto" class="form-input" value="2026-01-15">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline btn-close-modal">Annuler</button>
+                <button class="btn btn-primary" onclick="generateAndPrintChauffeurFiche()"><i class="fa-solid fa-print"></i> Générer & Imprimer Fiche Chauffeur DE39</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL FICHE SALARIÉ INDIVIDUELLE -->
+    <div class="modal-overlay" id="modal-fiche-salarie">
+        <div class="modal-content" style="max-width: 820px;">
+            <div class="modal-header">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                    <div class="emp-avatar" id="profile-avatar">EF</div>
+                    <div>
+                        <h3 id="profile-full-name">Emilie JAYAT</h3>
+                        <p id="profile-sub" style="font-size: 0.85rem; color: var(--text-muted);">Responsable d'Exploitation (CDI)</p>
+                    </div>
+                </div>
+                <button class="btn-icon btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); pb: 8px;">
+                    <span class="badge badge-primary" id="profile-metier-badge">Bureaux / Secrétariat</span>
+                    <span class="badge badge-gray" id="profile-categorie-badge">ETAM</span>
+                    <span class="badge badge-secondary" id="profile-statut-badge">Salarié Actif</span>
+                </div>
+
+                <div class="form-grid" style="margin-bottom: 24px;">
+                    <div class="form-group">
+                        <label style="color: var(--text-muted);">Date d'entrée :</label>
+                        <strong id="profile-date-entree">-</strong>
+                    </div>
+                    <div class="form-group">
+                        <label style="color: var(--text-muted);">Visite Médicale :</label>
+                        <strong id="profile-visite-med">-</strong>
+                    </div>
+                    <div class="form-group">
+                        <label style="color: var(--text-muted);">Téléphone :</label>
+                        <strong id="profile-telephone">-</strong>
+                    </div>
+                    <div class="form-group">
+                        <label style="color: var(--text-muted);">Email :</label>
+                        <strong id="profile-email">-</strong>
+                    </div>
+                    <div class="form-group full">
+                        <label style="color: var(--text-muted);">Équipements & Tailles d'EPI :</label>
+                        <strong id="profile-epi-info">Veste: L | Pantalon: 42 | Chaussures: 43</strong>
+                    </div>
+                </div>
+
+                <!-- Congés Soldes -->
+                <h4 style="font-size: 0.95rem; margin-bottom: 12px; color: var(--primary);">
+                    <i class="fa-solid fa-calendar-days"></i> Solde de Congés & RTT
+                </h4>
+                <div style="display: flex; gap: 16px; margin-bottom: 24px;">
+                    <div style="flex: 1; padding: 12px; background: var(--primary-light); border-radius: 8px; text-align: center;">
+                        <span style="font-size: 0.78rem; color: var(--primary); font-weight: 700;">SOLDE CONGÉS PAYÉS</span>
+                        <h3 id="profile-solde-cp" style="color: var(--primary); font-size: 1.4rem;">25 jours</h3>
+                    </div>
+                    <div style="flex: 1; padding: 12px; background: var(--secondary-light); border-radius: 8px; text-align: center;">
+                        <span style="font-size: 0.78rem; color: var(--secondary); font-weight: 700;">SOLDE RTT</span>
+                        <h3 id="profile-solde-rtt" style="color: var(--secondary); font-size: 1.4rem;">10 jours</h3>
+                    </div>
+                </div>
+
+                <!-- Formations Summary -->
+                <h4 style="font-size: 0.95rem; margin-bottom: 12px; color: var(--primary);">
+                    <i class="fa-solid fa-graduation-cap"></i> Formations & Habilitations QSE
+                </h4>
+                <div id="profile-formations-container" style="margin-bottom: 24px;">
+                    <!-- Injected by JS -->
+                </div>
+
+                <!-- Documents Attachments -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <h4 style="font-size: 0.95rem; color: var(--primary); margin: 0;">
+                        <i class="fa-solid fa-paperclip"></i> Documents Joints au Dossier RH
+                    </h4>
+                    <button class="btn btn-secondary btn-sm" onclick="triggerProfileFileUpload()">
+                        <i class="fa-solid fa-cloud-arrow-up"></i> Ajouter un nouveau document
+                    </button>
+                    <input type="file" id="profile-file-input-hidden" style="display: none;" onchange="handleProfileFileUpload(event)">
+                </div>
+                <div class="files-list" id="profile-files-list">
+                    <!-- Injected by JS -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" id="btn-profile-edit"><i class="fa-solid fa-pen-to-square"></i> Modifier Profil</button>
+                <button class="btn btn-primary btn-close-modal">Fermer Fiche Salarié</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL NOTICE CONGÉS -->
+    <div class="modal-overlay" id="modal-conges-notice">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-calculator"></i> Notice & Méthode de Calcul des Congés</h3>
+                <button class="btn-icon btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" style="line-height: 1.6; font-size: 0.9rem;">
+                <h4 style="color: var(--primary); margin-bottom: 8px;">1. Acquisition des Congés Payés (CP)</h4>
+                <p style="margin-bottom: 14px; color: var(--text-muted);">
+                    Selon le Code du travail et l'Accord d'entreprise Paprec, tout salarié en CDI accumule <strong>2,08 jours ouvrés de CP par mois de travail effectif</strong>, soit un total de <strong>25 jours ouvrés par an</strong>.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary btn-close-modal">J'ai compris</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL IMPRESSIONS LÉGALES RH (APERÇU PAYSAGE) -->
+    <div class="modal-overlay" id="modal-printable-doc">
+        <div class="modal-content" style="max-width: 850px;">
+            <div class="modal-header">
+                <h3 id="printable-modal-title">Aperçu & Impression du Document</h3>
+                <button class="btn-icon btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="printable-document" id="printable-doc-content">
+                    <!-- Formatted HTML injected by JS -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline btn-close-modal">Fermer</button>
+                <button class="btn btn-primary" onclick="triggerPrintDocClean()"><i class="fa-solid fa-print"></i> Imprimer le Document (0 Page Blanche)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DETAIL FORMATION -->
+    <div class="modal-overlay" id="modal-formation-info">
+        <div class="modal-content" style="max-width: 520px;">
+            <div class="modal-header">
+                <div>
+                    <h3 id="info-modal-title">Détail de la Formation</h3>
+                    <p id="info-modal-sub" class="text-secondary" style="font-size:0.85rem;"></p>
+                </div>
+                <button class="btn-icon btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div style="background: #f8fafc; border-radius: 10px; padding: 16px; margin-bottom: 20px; border: 1px solid var(--border-color);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <span id="info-modal-status-badge" class="badge badge-primary">STATUT</span>
+                        <span id="info-modal-days-countdown" style="font-weight: 700; font-size: 0.9rem;">-</span>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.88rem; color: var(--text-main);">
+                        <div><strong>Validité théorique :</strong> <span id="info-modal-duration">-</span></div>
+                        <div><strong>Date de réalisation :</strong> <span id="info-modal-date-passed">-</span></div>
+                        <div><strong>Date d'expiration :</strong> <span id="info-modal-date-exp">-</span></div>
+                    </div>
+                </div>
+                <button class="btn btn-secondary" id="btn-renew-today" style="width: 100%; justify-content: center;">
+                    <i class="fa-solid fa-rotate-right"></i> Renouveler la formation Aujourd'hui
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL SALARIÉ -->
+    <div class="modal-overlay" id="modal-employee">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-emp-title">Nouveau Collaborateur</h3>
+                <button class="btn-icon btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="form-employee">
+                <div class="modal-body">
+                    <input type="hidden" id="emp-id">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Nom *</label>
+                            <input type="text" id="emp-nom" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Prénom *</label>
+                            <input type="text" id="emp-prenom" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Corps de Métier *</label>
+                            <select id="emp-metier" class="form-select" required>
+                                <option value="Chauffeurs">Chauffeurs (PL / SPL)</option>
+                                <option value="Bascule & Accueil">Bascule & Accueil</option>
+                                <option value="Bureaux / Secrétariat">Bureaux & Admin</option>
+                                <option value="Exploitation / DALE">Exploitation / DALE</option>
+                                <option value="Exploitation / Tri">Exploitation / Tri</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Rôle / Intitulé de poste *</label>
+                            <input type="text" id="emp-role" class="form-input" placeholder="ex: Chauffeur SPL" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Catégorie *</label>
+                            <select id="emp-categorie" class="form-select">
+                                <option value="Ouvrier">Ouvrier</option>
+                                <option value="ETAM">ETAM</option>
+                                <option value="Cadre">Cadre</option>
+                                <option value="Intérimaire">Intérimaire</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Type de Contrat *</label>
+                            <select id="emp-contrat" class="form-select">
+                                <option value="CDI">CDI</option>
+                                <option value="Intérim">Intérim</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Date d'entrée</label>
+                            <input type="date" id="emp-date-entree" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label>Date Visite Médicale</label>
+                            <input type="date" id="emp-visite-medicale" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label>Téléphone</label>
+                            <input type="text" id="emp-telephone" class="form-input" placeholder="06 ..">
+                        </div>
+                        <div class="form-group">
+                            <label>Email</label>
+                            <input type="email" id="emp-email" class="form-input" placeholder="nom@paprec.com">
+                        </div>
+                        <div class="form-group full">
+                            <label>Pointures & Tailles d'EPI / Vêtements</label>
+                            <div style="display: flex; gap: 12px;">
+                                <input type="text" id="emp-epi-veste" class="form-input" placeholder="Veste (ex: L)">
+                                <input type="text" id="emp-epi-pantalon" class="form-input" placeholder="Pantalon (ex: 42)">
+                                <input type="text" id="emp-epi-chaussures" class="form-input" placeholder="Chaussures (ex: 43)">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline btn-close-modal">Annuler</button>
+                    <button type="submit" class="btn btn-primary">Enregistrer Salarié</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL CONGÉ -->
+    <div class="modal-overlay" id="modal-conge">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Saisie Période de Congé</h3>
+                <button class="btn-icon btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="form-conge">
+                <div class="modal-body">
+                    <input type="hidden" id="conge-id">
+                    <div class="form-grid">
+                        <div class="form-group full">
+                            <label>Collaborateur *</label>
+                            <select id="conge-emp-id" class="form-select" required>
+                                <!-- Injected by JS -->
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Type de Congé *</label>
+                            <select id="conge-type" class="form-select" required>
+                                <option value="CP">Congés Payés (CP)</option>
+                                <option value="RTT">RTT</option>
+                                <option value="Maladie">Arrêt Maladie</option>
+                                <option value="AT">Accident du Travail</option>
+                                <option value="SansSolde">Congé Sans Solde</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Statut Validation *</label>
+                            <select id="conge-statut" class="form-select">
+                                <option value="Validé">Validé</option>
+                                <option value="En attente">En attente</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Date de Début *</label>
+                            <input type="date" id="conge-debut" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Date de Fin *</label>
+                            <input type="date" id="conge-fin" class="form-input" required>
+                        </div>
+                        <div class="form-group full">
+                            <label>Motif / Remarque</label>
+                            <input type="text" id="conge-motif" class="form-input" placeholder="ex: Congés d'été...">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline btn-close-modal">Annuler</button>
+                    <button type="submit" class="btn btn-primary">Valider Congé</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL PLANNING CELL -->
+    <div class="modal-overlay" id="modal-planning-cell">
+        <div class="modal-content" style="max-width: 480px;">
+            <div class="modal-header">
+                <h3>AFFECTATION PLANNING</h3>
+                <button class="btn-icon btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <p id="planning-cell-info" style="font-weight: 600; margin-bottom: 16px; color: var(--primary);"></p>
+                <div class="form-group">
+                    <label>Saisir l'affectation ou le poste :</label>
+                    <input type="text" id="planning-cell-text" class="form-input" placeholder="ex: Tournée Ampliroll, Bascule, Congés...">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline btn-close-modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="savePlanningCell()">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application JS Logic -->
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
