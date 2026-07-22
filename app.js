@@ -406,8 +406,15 @@ function openProfileModal(empId) {
         document.getElementById('profile-epi-info').textContent = 'Non renseigné';
     }
 
-    document.getElementById('profile-solde-cp').textContent = `${emp.soldeCP || 25} jours`;
-    document.getElementById('profile-solde-rtt').textContent = `${emp.soldeRTT || 10} jours`;
+    const leaveStats = calculateEmployeeLeaveStats(emp, '2026');
+    document.getElementById('profile-solde-cp').innerHTML = `
+        <span style="font-size: 1.3rem; font-weight:800; color:var(--primary);">${leaveStats.cpSolde} j restants</span>
+        <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Acquis: ${leaveStats.cpAcquis} j | Pris: ${leaveStats.cpPris} j</div>
+    `;
+    document.getElementById('profile-solde-rtt').innerHTML = `
+        <span style="font-size: 1.3rem; font-weight:800; color:var(--secondary);">${leaveStats.rttSolde} j restants</span>
+        <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Acquis: ${leaveStats.rttAcquis} j | Pris: ${leaveStats.rttPris} j</div>
+    `;
 
     const formContainer = document.getElementById('profile-formations-container');
     formContainer.innerHTML = '';
@@ -494,6 +501,34 @@ function openAddEmpModal() {
     document.getElementById('modal-employee').classList.add('active');
 }
 
+function calculateEmployeeLeaveStats(emp, year = '2026') {
+    const cpAcquis = emp.cpAcquis !== undefined ? parseFloat(emp.cpAcquis) : 25;
+    const rttAcquis = emp.rttAcquis !== undefined ? parseFloat(emp.rttAcquis) : 10;
+
+    let cpPris = 0;
+    let rttPris = 0;
+
+    (emp.conges || []).forEach(c => {
+        if (c.statut === 'Validé' && c.debut && c.fin && c.debut.startsWith(year)) {
+            const days = calcDaysBetween(c.debut, c.fin);
+            if (c.type === 'CP') cpPris += days;
+            if (c.type === 'RTT') rttPris += days;
+        }
+    });
+
+    const cpSolde = Math.max(0, cpAcquis - cpPris);
+    const rttSolde = Math.max(0, rttAcquis - rttPris);
+
+    return {
+        cpAcquis,
+        cpPris,
+        cpSolde,
+        rttAcquis,
+        rttPris,
+        rttSolde
+    };
+}
+
 function openEditEmpModal(empId) {
     const emp = employees.find(e => e.id === empId);
     if (!emp) return;
@@ -510,6 +545,8 @@ function openEditEmpModal(empId) {
     document.getElementById('emp-visite-medicale').value = emp.visiteMedicale || '';
     document.getElementById('emp-telephone').value = emp.telephone || '';
     document.getElementById('emp-email').value = emp.email || '';
+    document.getElementById('emp-cp-acquis').value = emp.cpAcquis !== undefined ? emp.cpAcquis : 25;
+    document.getElementById('emp-rtt-acquis').value = emp.rttAcquis !== undefined ? emp.rttAcquis : 10;
 
     if (emp.tailleEpi) {
         document.getElementById('emp-epi-veste').value = emp.tailleEpi.veste || '';
@@ -538,6 +575,8 @@ function saveEmployeeForm(e) {
     const visiteMedicale = document.getElementById('emp-visite-medicale').value;
     const telephone = document.getElementById('emp-telephone').value.trim();
     const email = document.getElementById('emp-email').value.trim();
+    const cpAcquis = parseFloat(document.getElementById('emp-cp-acquis').value) || 25;
+    const rttAcquis = parseFloat(document.getElementById('emp-rtt-acquis').value) || 10;
 
     const veste = document.getElementById('emp-epi-veste').value.trim();
     const pantalon = document.getElementById('emp-epi-pantalon').value.trim();
@@ -558,6 +597,8 @@ function saveEmployeeForm(e) {
             emp.visiteMedicale = visiteMedicale;
             emp.telephone = telephone;
             emp.email = email;
+            emp.cpAcquis = cpAcquis;
+            emp.rttAcquis = rttAcquis;
             emp.tailleEpi = { veste, pantalon, chaussures };
         }
     } else {
@@ -573,10 +614,12 @@ function saveEmployeeForm(e) {
             visiteMedicale: visiteMedicale,
             telephone: telephone,
             email: email,
+            cpAcquis: cpAcquis,
+            rttAcquis: rttAcquis,
             tailleEpi: { veste, pantalon, chaussures },
             statut: 'Actif',
-            soldeCP: 25,
-            soldeRTT: 10,
+            soldeCP: cpAcquis,
+            soldeRTT: rttAcquis,
             documents: [],
             formations: [],
             conges: []
@@ -719,15 +762,23 @@ function renderCongesTable() {
             });
         }
 
+        const leaveStats = calculateEmployeeLeaveStats(emp, year);
+
         tr.innerHTML = `
             <td><strong>${emp.prenom} ${emp.nom}</strong></td>
             <td><span class="badge badge-gray">${emp.role || emp.metier}</span></td>
-            <td style="text-align: center;"><strong style="color: var(--primary); font-size: 1rem;">${emp.soldeCP || 25} j</strong></td>
-            <td style="text-align: center;"><strong style="color: var(--secondary); font-size: 1rem;">${emp.soldeRTT || 10} j</strong></td>
+            <td style="text-align: center;">
+                <span class="badge badge-primary" style="font-size:0.85rem; font-weight:700;">Restant : ${leaveStats.cpSolde} j</span>
+                <div style="font-size:0.75rem; color:var(--text-muted); margin-top:3px;">Acquis: ${leaveStats.cpAcquis}j | Pris: ${leaveStats.cpPris}j</div>
+            </td>
+            <td style="text-align: center;">
+                <span class="badge badge-secondary" style="font-size:0.85rem; font-weight:700;">Restant : ${leaveStats.rttSolde} j</span>
+                <div style="font-size:0.75rem; color:var(--text-muted); margin-top:3px;">Acquis: ${leaveStats.rttAcquis}j | Pris: ${leaveStats.rttPris}j</div>
+            </td>
             <td>${congesHtml}</td>
             <td style="text-align: right;" onclick="event.stopPropagation()">
                 <button class="btn btn-outline btn-sm" onclick="openAddCongeForEmp('${emp.id}')">
-                    <i class="fa-solid fa-plus"></i> Ajouter Congé
+                    <i class="fa-solid fa-plus"></i> Saisir Congé
                 </button>
             </td>
         `;
