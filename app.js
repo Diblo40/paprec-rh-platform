@@ -39,10 +39,13 @@ function init() {
         } catch (e) {
             employees = JSON.parse(JSON.stringify(INITIAL_EMPLOYEES));
         }
-    } else {
-        employees = JSON.parse(JSON.stringify(INITIAL_EMPLOYEES));
-        saveEmployeesToStorage();
-    }
+    // Clean old fictitious SST entries from stored data to strictly match Excel
+    employees.forEach(emp => {
+        if (emp.formations) {
+            emp.formations = emp.formations.filter(f => f.id !== 'sst');
+        }
+    });
+    saveEmployeesToStorage();
 
     // Load Planning
     const savedPlanning = localStorage.getItem(STORAGE_PLANNING_KEY);

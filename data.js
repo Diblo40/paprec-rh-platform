@@ -46,11 +46,6 @@ const INITIAL_EMPLOYEES = [
                 "expiration": null
             },
             {
-                "id": "sst",
-                "name": "Sauveteur Secouriste (SST)",
-                "expiration": "2025-05-17"
-            },
-            {
                 "id": "epi",
                 "name": "Formation EPI",
                 "date": "2024-09-27",
@@ -272,11 +267,6 @@ const INITIAL_EMPLOYEES = [
                 "expiration": "2028-08-25"
             },
             {
-                "id": "sst",
-                "name": "Sauveteur Secouriste (SST)",
-                "expiration": "2025-05-17"
-            },
-            {
                 "id": "amiante",
                 "name": "Risques Amiante",
                 "date": "2023-07-26",
@@ -446,11 +436,6 @@ const INITIAL_EMPLOYEES = [
                 "expiration": null
             },
             {
-                "id": "sst",
-                "name": "Sauveteur Secouriste (SST)",
-                "expiration": "2025-05-17"
-            },
-            {
                 "id": "epi",
                 "name": "Formation EPI",
                 "date": "2022-09-23",
@@ -532,11 +517,6 @@ const INITIAL_EMPLOYEES = [
                 "name": "FIMO / FCO",
                 "date": null,
                 "expiration": "2025-10-01"
-            },
-            {
-                "id": "sst",
-                "name": "Sauveteur Secouriste (SST)",
-                "expiration": "2025-05-17"
             },
             {
                 "id": "chimiques",
