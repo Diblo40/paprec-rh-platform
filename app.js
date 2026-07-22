@@ -1,8 +1,8 @@
 // Complete Revamped Application Logic for Paprec RH Platform & Formations QSE
 
-const STORAGE_EMP_KEY = 'paprec_rh_employees_v8';
-const STORAGE_PLANNING_KEY = 'paprec_rh_planning_v8';
-const STORAGE_SETTINGS_KEY = 'paprec_rh_settings_v8';
+const STORAGE_EMP_KEY = 'paprec_rh_employees_v9';
+const STORAGE_PLANNING_KEY = 'paprec_rh_planning_v9';
+const STORAGE_SETTINGS_KEY = 'paprec_rh_settings_v9';
 
 // App State
 let employees = [];
