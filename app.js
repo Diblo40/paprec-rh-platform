@@ -2718,3 +2718,145 @@ function updateCloudSyncBadge(isOnline, message) {
             : `<span style="color: #ca8a04;"><i class="fa-solid fa-cloud"></i> ${message}</span>`;
     }
 }
+
+
+// ========================================================
+// HYBRID ENTERPRISE ENGINE (INDEXEDDB + SUPABASE REALTIME) - RH PLATFORM
+// ========================================================
+const HYBRID_RH_DB_NAME = "PaprecRH_HybridStore";
+const HYBRID_RH_DB_VERSION = 1;
+
+function openRhIndexedDB() {
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open(HYBRID_RH_DB_NAME, HYBRID_RH_DB_VERSION);
+        req.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains("rh_kv_store")) {
+                db.createObjectStore("rh_kv_store");
+            }
+        };
+        req.onsuccess = (e) => resolve(e.target.result);
+        req.onerror = (e) => reject(e.target.error);
+    });
+}
+
+async function rhIdbSet(key, val) {
+    try {
+        const db = await openRhIndexedDB();
+        const tx = db.transaction("rh_kv_store", "readwrite");
+        tx.objectStore("rh_kv_store").put(val, key);
+    } catch(e) {}
+}
+
+async function rhIdbGet(key) {
+    try {
+        const db = await openRhIndexedDB();
+        const tx = db.transaction("rh_kv_store", "readonly");
+        return new Promise((resolve) => {
+            const req = tx.objectStore("rh_kv_store").get(key);
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => resolve(null);
+        });
+    } catch(e) { return null; }
+}
+
+let isRhHybridSyncing = false;
+
+async function syncRhHybridState() {
+    if (isRhHybridSyncing) return;
+    isRhHybridSyncing = true;
+
+    try {
+        const resp = await fetch(`${SUPABASE_RH_URL}/rest/v1/employees?id=eq.rh_global_state&select=*`, {
+            headers: {
+                'apikey': SUPABASE_RH_KEY,
+                'Authorization': `Bearer ${SUPABASE_RH_KEY}`
+            }
+        });
+
+        if (resp.ok) {
+            const rows = await resp.json();
+            if (rows && rows.length > 0 && rows[0].name) {
+                try {
+                    const payload = JSON.parse(rows[0].name);
+                    if (payload && payload.employees && Array.isArray(payload.employees)) {
+                        
+                        const mergedEmps = mergeEmployeeLists(employees, payload.employees);
+                        const empCountChanged = (mergedEmps.length !== employees.length);
+                        const empStrChanged = (JSON.stringify(employees) !== JSON.stringify(mergedEmps));
+
+                        if (empCountChanged || empStrChanged) {
+                            employees = mergedEmps;
+                            await rhIdbSet(STORAGE_EMP_KEY, employees);
+                            localStorage.setItem(STORAGE_EMP_KEY, JSON.stringify(employees));
+
+                            if (payload.planning) {
+                                planningData = payload.planning;
+                                await rhIdbSet(STORAGE_PLANNING_KEY, planningData);
+                                localStorage.setItem(STORAGE_PLANNING_KEY, JSON.stringify(planningData));
+                            }
+                            if (payload.settings) {
+                                rhSettings = payload.settings;
+                                await rhIdbSet(STORAGE_SETTINGS_KEY, rhSettings);
+                                localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify(rhSettings));
+                                updateSettingsDisplay();
+                            }
+
+                            processEmployeesFormationsStatus();
+                            updateStats();
+                            renderPersonnel();
+                            renderConges();
+                            renderPlanning();
+                            renderFormationsMatrix();
+                            checkAutomaticExpirationAlerts();
+                        }
+                        updateRhSyncBadge(true, `Cloud & IndexedDB Actif (${employees.length} salariés)`);
+                    }
+                } catch(parseErr) {}
+            }
+        }
+    } catch(e) {
+        updateRhSyncBadge(false, "Stockage Hors-Ligne (IndexedDB)");
+    } finally {
+        isRhHybridSyncing = false;
+    }
+}
+
+function initRhHybridEngine() {
+    // 1. Load from IndexedDB for 0ms Instant Offline Startup
+    rhIdbGet(STORAGE_EMP_KEY).then(val => {
+        if (val && Array.isArray(val) && val.length > 0) {
+            employees = val;
+            processEmployeesFormationsStatus();
+            updateStats();
+            renderPersonnel();
+            renderConges();
+            renderPlanning();
+            renderFormationsMatrix();
+        }
+    });
+
+    // 2. Fetch Master Cloud State
+    syncRhHybridState();
+
+    // 3. Fast 2-second background sync
+    setInterval(syncRhHybridState, 2000);
+
+    // 4. Auto-sync on window focus
+    window.addEventListener('focus', syncRhHybridState);
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) syncRhHybridState();
+    });
+}
+
+function updateRhSyncBadge(isOnline, message) {
+    const badge = document.getElementById('cloud-sync-status-badge');
+    if (badge) {
+        badge.innerHTML = isOnline 
+            ? `<span style="color: #16a34a;"><i class="fa-solid fa-shield-halved"></i> ${message}</span>`
+            : `<span style="color: #ca8a04;"><i class="fa-solid fa-hard-drive"></i> ${message}</span>`;
+    }
+}
+
+// Start RH Hybrid Engine
+initRhHybridEngine();
