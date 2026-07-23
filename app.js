@@ -1,4 +1,12 @@
 
+// Purge stale local storage business data to prevent cloud contamination
+try {
+    localStorage.removeItem("paprec_rh_employees_v8");
+    localStorage.removeItem("paprec_rh_employees");
+    localStorage.removeItem("STORAGE_EMP_KEY");
+} catch(e) {}
+
+
 function triggerCloudPush() {
     pushDataToCloud();
 }
@@ -2562,6 +2570,7 @@ let isReloadingEmployees = false;
 
 // Convert Supabase DB Row to Clean Employee Object
 function parseDbRowToEmployee(row) {
+    if (!row || !row.id || row.id.includes('pure_cloud') || (row.name && row.name.includes('PURE CLOUD'))) return null;
     if (!row) return null;
     let meta = {};
     if (row.role && row.role.startsWith("{")) {
