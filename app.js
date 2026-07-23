@@ -1,3 +1,8 @@
+
+function triggerCloudPush() {
+    pushDataToCloud();
+}
+
 // Complete Revamped Application Logic for Paprec RH Platform & Formations QSE
 
 const STORAGE_EMP_KEY = 'paprec_rh_employees_v10';
@@ -2535,162 +2540,190 @@ Service RH & QSE ${rhSettings.agenceNom}`
 
 
 
-// ========================================================
-// REAL-TIME MULTI-DEVICE CLOUD SYNC ENGINE FOR PAPREC RH (AUTHORITATIVE CLOUD MASTER)
-// ========================================================
-const DEFAULT_RH_SUPABASE_URL = "https://wilukbpvjfdyxahasmmt.supabase.co";
-const DEFAULT_RH_SUPABASE_KEY = "sb_publishable_P9MiaaGJqJ2f6zAFvHwXZA_jYHlF830";
 
-let cloudPushDebounce = null;
-let lastCloudSyncTimestamp = 0;
-let isPushingToCloud = false;
+
+// ========================================================
+// CLEAN ROW-BASED CLOUD SYNC ENGINE FOR PAPREC RH (ROLE FIELD METADATA)
+// ========================================================
+const SUPABASE_RH_URL = "https://wilukbpvjfdyxahasmmt.supabase.co";
+const SUPABASE_RH_KEY = "sb_publishable_P9MiaaGJqJ2f6zAFvHwXZA_jYHlF830";
+const DB_RH_BASE = SUPABASE_RH_URL + "/rest/v1/";
 
 function triggerCloudPush() {
-    clearTimeout(cloudPushDebounce);
-    cloudPushDebounce = setTimeout(() => {
-        pushDataToCloud();
-    }, 150);
+    pushDataToCloud();
 }
 
-function getCloudSyncPayload() {
-    return {
-        timestamp: Date.now(),
-        employees: employees.filter(e => e.id !== "rh_global_state"),
-        planning: planningData,
-        settings: rhSettings
-    };
+async function rhDbGet(table) {
+    try {
+        const resp = await fetch(DB_RH_BASE + table + "?select=*", {
+            headers: { "apikey": SUPABASE_RH_KEY, "Authorization": "Bearer " + SUPABASE_RH_KEY }
+        });
+        if (!resp.ok) return null;
+        return await resp.json();
+    } catch(e) { return null; }
 }
+
+async function rhDbUpsert(table, item) {
+    try {
+        await fetch(DB_RH_BASE + table, {
+            method: "POST",
+            headers: {
+                "apikey": SUPABASE_RH_KEY,
+                "Authorization": "Bearer " + SUPABASE_RH_KEY,
+                "Content-Type": "application/json",
+                "Prefer": "resolution=merge-duplicates"
+            },
+            body: JSON.stringify(item)
+        });
+    } catch(e) {}
+}
+
+async function rhDbDelete(table, keyField, keyValue) {
+    try {
+        await fetch(`${DB_RH_BASE}${table}?${keyField}=eq.${encodeURIComponent(keyValue)}`, {
+            method: "DELETE",
+            headers: { "apikey": SUPABASE_RH_KEY, "Authorization": "Bearer " + SUPABASE_RH_KEY }
+        });
+    } catch(e) {}
+}
+
+let isRhSyncing = false;
 
 async function pushDataToCloud() {
-    if (isPushingToCloud) return;
-    isPushingToCloud = true;
-
-    const payload = getCloudSyncPayload();
-    lastCloudSyncTimestamp = payload.timestamp;
-
-    const supaUrl = localStorage.getItem('paprec_supabase_url') || DEFAULT_RH_SUPABASE_URL;
-    const supaKey = localStorage.getItem('paprec_supabase_key') || DEFAULT_RH_SUPABASE_KEY;
+    if (isRhSyncing) return;
+    isRhSyncing = true;
+    updateCloudSyncBadge(true, "Envoi Cloud...");
 
     try {
-        updateCloudSyncBadge(true, "Envoi au Cloud...");
-        const payloadStr = JSON.stringify(payload);
-
-        // Try PATCH
-        const patchResp = await fetch(`${supaUrl}/rest/v1/employees?id=eq.rh_global_state`, {
-            method: 'PATCH',
-            headers: {
-                'apikey': supaKey,
-                'Authorization': `Bearer ${supaKey}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                name: payloadStr,
-                entryDate: new Date().toISOString()
-            })
-        });
-
-        if (!patchResp.ok || patchResp.status === 404) {
-            await fetch(`${supaUrl}/rest/v1/employees`, {
-                method: 'POST',
-                headers: {
-                    'apikey': supaKey,
-                    'Authorization': `Bearer ${supaKey}`,
-                    'Content-Type': 'application/json',
-                    'Prefer': 'resolution=merge-duplicates'
-                },
-                body: JSON.stringify({
-                    id: "rh_global_state",
-                    name: payloadStr,
-                    role: "RH_STATE_PAYLOAD",
-                    entryDate: new Date().toISOString()
-                })
+        // 1. Push all employees as individual rows to Supabase 'employees' table
+        for (const emp of employees) {
+            if (!emp || !emp.id || emp.id === "rh_global_state") continue;
+            
+            const fullName = emp.name || `${emp.nom || ''} ${emp.prenom || ''}`.trim() || "Collaborateur";
+            const metaJson = JSON.stringify({
+                nom: emp.nom || fullName.split(' ')[0] || "",
+                prenom: emp.prenom || (fullName.split(' ').slice(1).join(' ')) || "",
+                poste: emp.poste || "Collaborateur",
+                dateEntree: emp.dateEntree || "2026-01-01",
+                avatarColor: emp.avatarColor || "#0284c7",
+                congesSolde: typeof emp.congesSolde === 'number' ? emp.congesSolde : 25,
+                rttSolde: typeof emp.rttSolde === 'number' ? emp.rttSolde : 10,
+                formations: emp.formations || []
             });
+
+            const rowData = {
+                id: emp.id,
+                name: fullName,
+                role: metaJson,
+                entryDate: emp.dateEntree || "2026-01-01"
+            };
+            await rhDbUpsert("employees", rowData);
         }
+
+        // 2. Push planning & settings payload to rh_global_state row
+        const metaPayload = JSON.stringify({
+            timestamp: Date.now(),
+            planning: planningData,
+            settings: rhSettings
+        });
+        await rhDbUpsert("employees", {
+            id: "rh_global_state",
+            name: metaPayload,
+            role: "RH_META_PAYLOAD",
+            entryDate: new Date().toISOString()
+        });
 
         updateCloudSyncBadge(true, "Synchronisé Cloud (Multi-Appareils)");
-    } catch (e) {
-        console.warn("RH Cloud Push error:", e);
+    } catch(e) {
+        console.warn("pushDataToCloud error:", e);
         updateCloudSyncBadge(false, "Stockage Local (Non connecté)");
     } finally {
-        isPushingToCloud = false;
+        isRhSyncing = false;
     }
 }
 
-async function pullDataFromCloud(isInitial = false) {
-    if (isPushingToCloud) return;
-
-    const supaUrl = localStorage.getItem('paprec_supabase_url') || DEFAULT_RH_SUPABASE_URL;
-    const supaKey = localStorage.getItem('paprec_supabase_key') || DEFAULT_RH_SUPABASE_KEY;
+async function pullDataFromCloud() {
+    if (isRhSyncing) return;
 
     try {
-        const resp = await fetch(`${supaUrl}/rest/v1/employees?id=eq.rh_global_state&select=*`, {
-            headers: {
-                'apikey': supaKey,
-                'Authorization': `Bearer ${supaKey}`
-            }
-        });
+        const rows = await rhDbGet("employees");
+        if (rows && Array.isArray(rows) && rows.length > 0) {
+            let fetchedEmps = [];
+            let metaPayload = null;
 
-        if (resp.ok) {
-            const rows = await resp.json();
-            if (rows && rows.length > 0 && rows[0].name) {
-                try {
-                    const payload = JSON.parse(rows[0].name);
-                    if (payload && payload.timestamp) {
-                        applyCloudPayload(payload, isInitial);
-                        updateCloudSyncBadge(true, "Synchronisé Cloud (Multi-Appareils)");
-                        return;
+            rows.forEach(r => {
+                if (r.id === "rh_global_state") {
+                    try { metaPayload = JSON.parse(r.name); } catch(e) {}
+                } else {
+                    let roleObj = {};
+                    if (r.role && r.role.startsWith("{")) {
+                        try { roleObj = JSON.parse(r.role); } catch(e) {}
                     }
-                } catch (jsonErr) {
-                    console.warn("Payload parse err:", jsonErr);
+                    const fullName = r.name || "Collaborateur";
+                    const parts = fullName.split(' ');
+                    const nomVal = roleObj.nom || parts[0] || "";
+                    const prenomVal = roleObj.prenom || (parts.slice(1).join(' ')) || "";
+
+                    fetchedEmps.push({
+                        id: r.id,
+                        nom: nomVal,
+                        prenom: prenomVal,
+                        name: fullName,
+                        poste: roleObj.poste || r.role || "Collaborateur",
+                        dateEntree: roleObj.dateEntree || r.entryDate || "2026-01-01",
+                        avatarColor: roleObj.avatarColor || "#0284c7",
+                        congesSolde: typeof roleObj.congesSolde === 'number' ? roleObj.congesSolde : 25,
+                        rttSolde: typeof roleObj.rttSolde === 'number' ? roleObj.rttSolde : 10,
+                        formations: roleObj.formations || []
+                    });
+                }
+            });
+
+            if (fetchedEmps.length > 0) {
+                const localStr = JSON.stringify(employees);
+                const cloudStr = JSON.stringify(fetchedEmps);
+                if (localStr !== cloudStr) {
+                    employees = fetchedEmps;
+                    localStorage.setItem(STORAGE_EMP_KEY, JSON.stringify(employees));
+                    processEmployeesFormationsStatus();
+                    updateStats();
+                    renderPersonnel();
+                    renderConges();
+                    renderFormationsMatrix();
                 }
             }
+
+            if (metaPayload && metaPayload.planning) {
+                const localPlan = JSON.stringify(planningData);
+                const cloudPlan = JSON.stringify(metaPayload.planning);
+                if (localPlan !== cloudPlan) {
+                    planningData = metaPayload.planning;
+                    localStorage.setItem(STORAGE_PLANNING_KEY, JSON.stringify(planningData));
+                    renderPlanning();
+                }
+            }
+
+            if (metaPayload && metaPayload.settings) {
+                rhSettings = metaPayload.settings;
+                localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify(rhSettings));
+                updateSettingsDisplay();
+            }
+
+            updateCloudSyncBadge(true, "Synchronisé Cloud (Multi-Appareils)");
         }
-    } catch (e) {
-        console.warn("RH Cloud Pull error:", e);
-        updateCloudSyncBadge(false, "Stockage Local (Non connecté)");
+    } catch(e) {
+        console.warn("pullDataFromCloud error:", e);
     }
-}
-
-function applyCloudPayload(cloudRecord, forceApply = false) {
-    if (!cloudRecord || !cloudRecord.timestamp) return;
-    if (!forceApply && cloudRecord.timestamp <= lastCloudSyncTimestamp) return;
-
-    lastCloudSyncTimestamp = cloudRecord.timestamp;
-
-    if (cloudRecord.employees && Array.isArray(cloudRecord.employees)) {
-        employees = cloudRecord.employees.filter(e => e.id !== "rh_global_state");
-        localStorage.setItem(STORAGE_EMP_KEY, JSON.stringify(employees));
-    }
-    if (cloudRecord.planning) {
-        planningData = cloudRecord.planning;
-        localStorage.setItem(STORAGE_PLANNING_KEY, JSON.stringify(planningData));
-    }
-    if (cloudRecord.settings) {
-        rhSettings = cloudRecord.settings;
-        localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify(rhSettings));
-        updateSettingsDisplay();
-    }
-
-    processEmployeesFormationsStatus();
-    updateStats();
-    renderPersonnel();
-    renderConges();
-    renderPlanning();
-    renderFormationsMatrix();
-    checkAutomaticExpirationAlerts();
 }
 
 function initCloudSync() {
-    // Initial pull with forceApply=true to adopt Cloud Master state immediately
-    pullDataFromCloud(true);
-
+    pullDataFromCloud();
     // Auto-poll cloud changes every 5 seconds across all devices
-    setInterval(() => pullDataFromCloud(false), 5000);
+    setInterval(pullDataFromCloud, 5000);
 
-    // Auto-pull when window regains focus or visibility
-    window.addEventListener('focus', () => pullDataFromCloud(true));
+    window.addEventListener('focus', pullDataFromCloud);
     document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) pullDataFromCloud(true);
+        if (!document.hidden) pullDataFromCloud();
     });
 }
 
@@ -2698,7 +2731,7 @@ function updateCloudSyncBadge(isOnline, message) {
     const badge = document.getElementById('cloud-sync-status-badge');
     if (badge) {
         badge.innerHTML = isOnline 
-            ? `<span style="color: #16a34a; cursor: pointer;" onclick="pullDataFromCloud(true)" title="Cliquer pour forcer la synchronisation"><i class="fa-solid fa-cloud-check"></i> ${message}</span>`
-            : `<span style="color: #ca8a04; cursor: pointer;" onclick="pullDataFromCloud(true)" title="Cliquer pour reessayer"><i class="fa-solid fa-cloud"></i> ${message}</span>`;
+            ? `<span style="color: #16a34a; cursor: pointer;" onclick="pullDataFromCloud()" title="Cliquer pour forcer la synchronisation"><i class="fa-solid fa-cloud-check"></i> ${message}</span>`
+            : `<span style="color: #ca8a04; cursor: pointer;" onclick="pullDataFromCloud()" title="Cliquer pour reessayer"><i class="fa-solid fa-cloud"></i> ${message}</span>`;
     }
 }
