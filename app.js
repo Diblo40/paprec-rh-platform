@@ -2564,7 +2564,7 @@ function mergeEmployeeLists(localList, cloudList) {
 
     if (Array.isArray(cloudList)) {
         cloudList.forEach(emp => {
-            if (emp && emp.id && emp.id !== "rh_global_state") {
+            if (emp && emp.id && emp.id !== "rh_platform_master_state") {
                 map.set(emp.id, emp);
             }
         });
@@ -2572,7 +2572,7 @@ function mergeEmployeeLists(localList, cloudList) {
 
     if (Array.isArray(localList)) {
         localList.forEach(emp => {
-            if (emp && emp.id && emp.id !== "rh_global_state") {
+            if (emp && emp.id && emp.id !== "rh_platform_master_state") {
                 if (!map.has(emp.id)) {
                     map.set(emp.id, emp);
                 } else {
@@ -2590,13 +2590,15 @@ function mergeEmployeeLists(localList, cloudList) {
     return Array.from(map.values());
 }
 
+
+
 async function pushDataToCloud() {
     if (isRhSyncing) return;
     isRhSyncing = true;
 
     const payload = {
         timestamp: Date.now(),
-        employees: employees.filter(e => e.id !== "rh_global_state"),
+        employees: employees.filter(e => e.id !== "rh_platform_master_state"),
         planning: planningData,
         settings: rhSettings
     };
@@ -2604,7 +2606,6 @@ async function pushDataToCloud() {
     try {
         const payloadStr = JSON.stringify(payload);
 
-        // Atomic POST Upsert in Supabase REST API
         const resp = await fetch(`${SUPABASE_RH_URL}/rest/v1/employees`, {
             method: 'POST',
             headers: {
@@ -2614,7 +2615,7 @@ async function pushDataToCloud() {
                 'Prefer': 'resolution=merge-duplicates'
             },
             body: JSON.stringify({
-                id: "rh_global_state",
+                id: "rh_platform_master_state",
                 name: payloadStr,
                 role: "RH_MASTER_PAYLOAD",
                 entryDate: new Date().toISOString()
@@ -2622,21 +2623,21 @@ async function pushDataToCloud() {
         });
 
         if (resp.ok) {
-            updateCloudSyncBadge(true, `Synchronisé (${employees.length} salariés)`);
+            updateRhSyncBadge(true, `Cloud & IndexedDB Actif (${employees.length} salariés)`);
         }
     } catch(e) {
         console.warn("pushDataToCloud error:", e);
-        updateCloudSyncBadge(false, "Stockage Local");
     } finally {
         isRhSyncing = false;
     }
 }
 
+
 async function pullDataFromCloud(isInitial = false) {
     if (isRhSyncing) return false;
 
     try {
-        const resp = await fetch(`${SUPABASE_RH_URL}/rest/v1/employees?id=eq.rh_global_state&select=*`, {
+        const resp = await fetch(`${SUPABASE_RH_URL}/rest/v1/employees?id=eq.rh_platform_master_state&select=*`, {
             headers: {
                 'apikey': SUPABASE_RH_KEY,
                 'Authorization': `Bearer ${SUPABASE_RH_KEY}`
@@ -2767,7 +2768,7 @@ async function syncRhHybridState() {
     isRhHybridSyncing = true;
 
     try {
-        const resp = await fetch(`${SUPABASE_RH_URL}/rest/v1/employees?id=eq.rh_global_state&select=*`, {
+        const resp = await fetch(`${SUPABASE_RH_URL}/rest/v1/employees?id=eq.rh_platform_master_state&select=*`, {
             headers: {
                 'apikey': SUPABASE_RH_KEY,
                 'Authorization': `Bearer ${SUPABASE_RH_KEY}`
