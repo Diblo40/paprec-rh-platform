@@ -43,57 +43,20 @@ let currentCongesStartYear = 2026;
 
 // Init State
 function init() {
-    // Load Settings
-    const savedSet = localStorage.getItem(STORAGE_SETTINGS_KEY);
-    if (savedSet) {
-        try { rhSettings = JSON.parse(savedSet); } catch (e) {}
-    }
-    updateSettingsDisplay();
-
-    // Load Employees
-    const savedEmp = localStorage.getItem(STORAGE_EMP_KEY);
-    if (savedEmp) {
-        try {
-            employees = JSON.parse(savedEmp);
-        } catch (e) {
-            employees = JSON.parse(JSON.stringify(INITIAL_EMPLOYEES));
-        }
-    } else {
-        employees = JSON.parse(JSON.stringify(INITIAL_EMPLOYEES));
-    }
-
-    // Clean old fictitious SST entries from stored data to strictly match Excel
-    employees.forEach(emp => {
-        if (emp.formations) {
-            emp.formations = emp.formations.filter(f => f.id !== 'sst');
-        }
-    });
-    saveEmployeesToStorage();
-
-    // Load Planning
-    const savedPlanning = localStorage.getItem(STORAGE_PLANNING_KEY);
-    if (savedPlanning) {
-        try {
-            planningData = JSON.parse(savedPlanning);
-        } catch (e) {
-            planningData = JSON.parse(JSON.stringify(INITIAL_PLANNING));
-        }
-    } else {
-        planningData = JSON.parse(JSON.stringify(INITIAL_PLANNING));
-        savePlanningToStorage();
-    }
-
-    fichesPoste = JSON.parse(JSON.stringify(INITIAL_FICHES_POSTE));
+    // 100% Supabase PostgreSQL Source of Truth - Zero local storage contamination
+    employees = [];
 
     processEmployeesFormationsStatus();
     setupEventListeners();
     updateStats();
-    checkStorageUsage();
     renderPersonnel();
     renderConges();
     renderPlanning();
     renderFichesPoste();
     renderFormationsMatrix();
+
+    // Start Supabase Cloud Engine
+    initPureCloudEngine();
 }
 
 function saveEmployeesToStorage() {
@@ -2572,89 +2535,42 @@ Service RH & QSE ${rhSettings.agenceNom}`
 
 
 
+
+
+
+
 // ========================================================
-// ARCHITECTURE SUPABASE REALTIME + ZERO RACE CONDITION (v100.0)
-// SOURCE DE VÉRITÉ POSTGRESQL + WEBSOCKETS + PROTECTION GET OBSOLÈTE
+// ARCHITECTURE PAPREC RH V150.0 - CONFORME AU GUIDE OBLIGATOIRE
+// SUPABASE POSTGRESQL = UNIQUE SOURCE DE VÉRITÉ ABSOLUE
 // ========================================================
 const SUPABASE_RH_URL = "https://wilukbpvjfdyxahasmmt.supabase.co";
 const SUPABASE_RH_KEY = "sb_publishable_P9MiaaGJqJ2f6zAFvHwXZA_jYHlF830";
 
 let supabaseClient = null;
 let loadVersion = 0;
-let isReloadingEmployees = false;
+let isSavingEmployee = false;
 
-// Purge any stale browser memory on load
-try { localStorage.clear(); sessionStorage.clear(); } catch(e) {}
-
-// Initialize Official Supabase JS Client & Realtime Channel
-function initSupabaseRealtime() {
-    if (window.supabase) {
-        supabaseClient = window.supabase.createClient(SUPABASE_RH_URL, SUPABASE_RH_KEY);
-
-        // Subscribe to PostgreSQL Changes (Realtime WebSockets)
-        supabaseClient
-            .channel('rh-employees-realtime')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'employees' },
-                payload => {
-                    console.log('Realtime event received:', payload);
-                    handleRealtimePayload(payload);
-                }
-            )
-            .subscribe(status => {
-                console.log('Realtime channel status:', status);
-                if (status === 'SUBSCRIBED') {
-                    updateRhSyncBadge(true, `Realtime WebSockets Actif (${employees.length} salariés)`);
-                }
-            });
+// Toast Notification Helper
+function showToast(message, type) {
+    type = type || 'success';
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.style.cssText = 'position: fixed; bottom: 20px; right: 20px; z-index: 99999; display: flex; flex-direction: column; gap: 8px;';
+        document.body.appendChild(container);
     }
-
-    // Initial Fetch
-    reloadEmployees();
+    const toast = document.createElement('div');
+    toast.style.cssText = 'padding: 12px 20px; border-radius: 8px; font-weight: 600; font-size: 0.9rem; color: white; background: ' + (type === 'success' ? '#16a34a' : '#dc2626') + '; box-shadow: 0 4px 12px rgba(0,0,0,0.15); transition: opacity 0.3s ease;';
+    toast.innerHTML = type === 'success' ? '<i class="fa-solid fa-circle-check"></i> ' + message : '<i class="fa-solid fa-circle-exclamation"></i> ' + message;
+    container.appendChild(toast);
+    setTimeout(function() {
+        toast.style.opacity = '0';
+        setTimeout(function() { toast.remove(); }, 300);
+    }, 3000);
 }
 
-function handleRealtimePayload(payload) {
-    if (!payload) return;
-    const { eventType, new: newRow, old: oldRow } = payload;
-
-    if (eventType === 'INSERT' && newRow && newRow.id && !newRow.id.startsWith("rh_")) {
-        const emp = parseDbRowToEmployee(newRow);
-        if (emp && !employees.some(e => e.id === emp.id)) {
-            employees.push(emp);
-            processEmployeesFormationsStatus();
-            updateStats();
-            renderPersonnel();
-            renderConges();
-            renderPlanning();
-            renderFormationsMatrix();
-        }
-    } else if (eventType === 'UPDATE' && newRow && newRow.id && !newRow.id.startsWith("rh_")) {
-        const updatedEmp = parseDbRowToEmployee(newRow);
-        if (updatedEmp) {
-            employees = employees.map(e => e.id === updatedEmp.id ? updatedEmp : e);
-            processEmployeesFormationsStatus();
-            updateStats();
-            renderPersonnel();
-            renderConges();
-            renderPlanning();
-            renderFormationsMatrix();
-        }
-    } else if (eventType === 'DELETE' && oldRow && oldRow.id) {
-        employees = employees.filter(e => e.id !== oldRow.id);
-        processEmployeesFormationsStatus();
-        updateStats();
-        renderPersonnel();
-        renderConges();
-        renderPlanning();
-        renderFormationsMatrix();
-    } else {
-        // Safe reload fallback
-        reloadEmployees();
-    }
-}
-
-// Convert DB Row to Employee Object
+// Convert Supabase DB Row to Clean Employee Object
 function parseDbRowToEmployee(row) {
     if (!row || !row.id || row.id.startsWith("rh_") || row.id.includes("pure_cloud")) return null;
     let meta = {};
@@ -2665,7 +2581,7 @@ function parseDbRowToEmployee(row) {
         id: row.id,
         nom: meta.nom || row.name || "Collaborateur",
         prenom: meta.prenom || "",
-        name: `${meta.prenom || ''} ${meta.nom || row.name || ''}`.trim(),
+        name: ((meta.prenom || '') + ' ' + (meta.nom || row.name || '')).trim(),
         poste: meta.poste || "Salarié",
         metier: meta.metier || "Exploitation / DALE",
         categorie: meta.categorie || "Ouvrier",
@@ -2685,6 +2601,7 @@ function parseDbRowToEmployee(row) {
     };
 }
 
+// Convert Employee Object to Supabase DB Row
 function formatEmployeeToDbRow(emp) {
     const meta = {
         nom: emp.nom || emp.name || "",
@@ -2709,127 +2626,283 @@ function formatEmployeeToDbRow(emp) {
 
     return {
         id: emp.id,
-        name: `${emp.nom || emp.name || ''} ${emp.prenom || ''}`.trim(),
+        name: ((emp.nom || emp.name || '') + ' ' + (emp.prenom || '')).trim(),
         role: JSON.stringify(meta),
         entryDate: emp.dateEntree || new Date().toISOString()
     };
 }
 
-// Protected reloadEmployees against In-Flight Race Conditions
-async function reloadEmployees() {
+// 1. CHARGEMENT INITIAL & PROTECTION CONTRE LES REQUÊTES OBSOLÈTES (Étape 7 & 9)
+async function loadEmployees() {
     const currentVersion = ++loadVersion;
-    if (isReloadingEmployees) return;
-    isReloadingEmployees = true;
 
     try {
-        const resp = await fetch(`${SUPABASE_RH_URL}/rest/v1/employees?select=*`, {
+        const resp = await fetch(SUPABASE_RH_URL + '/rest/v1/employees?select=*', {
             headers: {
                 'apikey': SUPABASE_RH_KEY,
-                'Authorization': `Bearer ${SUPABASE_RH_KEY}`
+                'Authorization': 'Bearer ' + SUPABASE_RH_KEY
             }
         });
 
-        // Ignore response if a newer request or delete started in between
         if (currentVersion !== loadVersion) {
-            console.log('Ignored obsolete GET response version:', currentVersion);
+            console.warn('[LOAD] Réponse obsolète ignorée.');
             return;
         }
 
         if (resp.ok) {
             const rows = await resp.json();
             if (rows && Array.isArray(rows)) {
-                const validRows = rows.filter(r => r && r.id && !r.id.startsWith("rh_") && !r.id.includes("pure_cloud"));
-                const fetchedEmployees = validRows.map(parseDbRowToEmployee).filter(e => e !== null);
+                const validRows = rows.filter(function(r) { return r && r.id && !r.id.startsWith("rh_") && !r.id.includes("pure_cloud"); });
+                employees = validRows.map(parseDbRowToEmployee).filter(function(e) { return e !== null; });
 
-                if (fetchedEmployees.length > 0) {
-                    employees = fetchedEmployees;
-                    processEmployeesFormationsStatus();
-                    updateStats();
-                    renderPersonnel();
-                    renderConges();
-                    renderPlanning();
-                    renderFormationsMatrix();
-                    checkAutomaticExpirationAlerts();
+                processEmployeesFormationsStatus();
+                updateStats();
+                renderPersonnel();
+                renderConges();
+                renderPlanning();
+                renderFormationsMatrix();
+                checkAutomaticExpirationAlerts();
 
-                    updateRhSyncBadge(true, `Synchronisé PostgreSQL (${employees.length} salariés)`);
-                }
+                updateRhSyncBadge(true, 'En Direct de Supabase (' + employees.length + ' salariés)');
             }
         }
-    } catch(e) {
-        console.warn("reloadEmployees error:", e);
-    } finally {
-        isReloadingEmployees = false;
+    } catch (err) {
+        console.error('[LOAD] Erreur:', err);
     }
 }
 
-// Atomic Save / Upsert Single Row
-async function saveEmployeeAtomically(emp) {
-    if (!emp || !emp.id) return;
-    const dbRow = formatEmployeeToDbRow(emp);
+// 2. ÉCRITURE STRICTE AVEC CONFIRMATION SERVEUR OBLIGATOIRE (Étape 4 & 5)
+async function saveEmployee(formData) {
+    if (isSavingEmployee) return null;
+    isSavingEmployee = true;
 
-    const existingIdx = employees.findIndex(e => e.id === emp.id);
-    if (existingIdx !== -1) {
-        employees[existingIdx] = emp;
-    } else {
-        employees.push(emp);
-    }
-    processEmployeesFormationsStatus();
-    updateStats();
-    renderPersonnel();
-    renderConges();
-    renderPlanning();
-    renderFormationsMatrix();
+    const saveBtn = document.querySelector('#form-employee button[type="submit"]');
+    if (saveBtn) saveBtn.disabled = true;
 
     try {
-        const resp = await fetch(`${SUPABASE_RH_URL}/rest/v1/employees`, {
+        const empId = formData.id || ('emp_' + Date.now());
+        const employee = {
+            id: empId,
+            nom: formData.nom,
+            prenom: formData.prenom,
+            poste: formData.poste || formData.role || "Salarié",
+            metier: formData.metier || "Exploitation / DALE",
+            categorie: formData.categorie || "Ouvrier",
+            contrat: formData.contrat || "CDI",
+            dateEntree: formData.dateEntree || "2024-01-01",
+            telephone: formData.telephone || "",
+            email: formData.email || "",
+            adresse: formData.adresse || "",
+            tailleEpi: formData.tailleEpi || { veste: "L", pantalon: "42", chaussures: "43" },
+            visiteMedicale: formData.visiteMedicale || "2025-10-10",
+            statut: formData.statut || "Actif",
+            soldeCP: formData.soldeCP !== undefined ? formData.soldeCP : 25,
+            soldeRTT: formData.soldeRTT !== undefined ? formData.soldeRTT : 10,
+            documents: formData.documents || [],
+            formations: formData.formations || [],
+            conges: formData.conges || []
+        };
+
+        const dbRow = formatEmployeeToDbRow(employee);
+        console.log('[SAVE] Envoi à Supabase:', dbRow);
+
+        const resp = await fetch(SUPABASE_RH_URL + '/rest/v1/employees', {
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_RH_KEY,
-                'Authorization': `Bearer ${SUPABASE_RH_KEY}`,
+                'Authorization': 'Bearer ' + SUPABASE_RH_KEY,
                 'Content-Type': 'application/json',
-                'Prefer': 'resolution=merge-duplicates'
+                'Prefer': 'return=representation, resolution=merge-duplicates'
             },
             body: JSON.stringify(dbRow)
         });
-        if (resp.ok) {
-            console.log("Atomically saved employee to Supabase:", emp.id);
+
+        if (!resp.ok) {
+            const errText = await resp.text();
+            throw new Error('Erreur Supabase (' + resp.status + '): ' + errText);
         }
-    } catch(e) {
-        console.warn("saveEmployeeAtomically error:", e);
+
+        const returnedRows = await resp.json();
+        if (!returnedRows || returnedRows.length === 0) {
+            throw new Error("Supabase n'a retourné aucune donnée après la sauvegarde.");
+        }
+
+        console.log('[SAVE] Salarié confirmé par Supabase:', returnedRows[0]);
+
+        const confirmedEmp = parseDbRowToEmployee(returnedRows[0]);
+        const existingIdx = employees.findIndex(function(e) { return e.id === confirmedEmp.id; });
+        if (existingIdx !== -1) {
+            employees[existingIdx] = confirmedEmp;
+        } else {
+            employees.push(confirmedEmp);
+        }
+
+        processEmployeesFormationsStatus();
+        updateStats();
+        renderPersonnel();
+        renderConges();
+        renderPlanning();
+        renderFormationsMatrix();
+
+        closeModals();
+        showToast('Salarié enregistré avec succès !', 'success');
+        return confirmedEmp;
+    } catch (err) {
+        console.error('[SAVE] Échec:', err);
+        alert("Impossible d'enregistrer le salarié : " + err.message);
+        showToast("Échec d'enregistrement : " + err.message, 'error');
+        return null;
+    } finally {
+        isSavingEmployee = false;
+        if (saveBtn) saveBtn.disabled = false;
     }
 }
 
-// Atomic Delete Single Row + Version Bump (Destroys In-Flight Race Conditions)
-async function deleteEmployeeAtomically(empId) {
-    if (!empId) return;
-    
-    // Increment loadVersion so any previous in-flight GET is ignored!
+// Form Submit Handler
+async function saveEmployeeForm(e) {
+    if (e && e.preventDefault) e.preventDefault();
+
+    const id = document.getElementById('emp-id')?.value;
+    const nom = document.getElementById('emp-nom')?.value.trim();
+    const prenom = document.getElementById('emp-prenom')?.value.trim();
+    const metier = document.getElementById('emp-metier')?.value;
+    const role = document.getElementById('emp-role')?.value.trim();
+    const categorie = document.getElementById('emp-categorie')?.value;
+    const contrat = document.getElementById('emp-contrat')?.value;
+    const dateEntree = document.getElementById('emp-date-entree')?.value;
+    const visiteMedicale = document.getElementById('emp-visite-medicale')?.value;
+    const telephone = document.getElementById('emp-telephone')?.value.trim();
+    const email = document.getElementById('emp-email')?.value.trim();
+    const cpAcquis = parseFloat(document.getElementById('emp-cp-acquis')?.value) || 25;
+    const rttAcquis = parseFloat(document.getElementById('emp-rtt-acquis')?.value) || 10;
+
+    const veste = document.getElementById('emp-epi-veste')?.value.trim();
+    const pantalon = document.getElementById('emp-epi-pantalon')?.value.trim();
+    const chaussures = document.getElementById('emp-epi-chaussures')?.value.trim();
+
+    if (!nom || !prenom) {
+        alert('Veuillez saisir au moins un nom et un prénom.');
+        return;
+    }
+
+    const formData = {
+        id: id, nom: nom, prenom: prenom, metier: metier, role: role, categorie: categorie, contrat: contrat,
+        dateEntree: dateEntree, visiteMedicale: visiteMedicale, telephone: telephone, email: email,
+        cpAcquis: cpAcquis, rttAcquis: rttAcquis,
+        tailleEpi: { veste: veste, pantalon: pantalon, chaussures: chaussures }
+    };
+
+    await saveEmployee(formData);
+}
+
+// 3. SUPPRESSION ATOMIQUE AVEC CONFIRMATION SERVEUR OBLIGATOIRE (Étape 11)
+async function deleteEmployee(empId) {
+    if (!confirm('Voulez-vous vraiment supprimer ce collaborateur du système RH ?')) return false;
+
+    console.log('[DELETE] Suppression demandée:', empId);
     loadVersion++;
 
-    // 1. Optimistic Local Delete
-    employees = employees.filter(e => e.id !== empId);
-    processEmployeesFormationsStatus();
-    updateStats();
-    renderPersonnel();
-    renderConges();
-    renderPlanning();
-    renderFormationsMatrix();
-
-    // 2. PostgreSQL Atomic Delete
     try {
-        if (supabaseClient) {
-            await supabaseClient.from('employees').delete().eq('id', empId);
-        } else {
-            await fetch(`${SUPABASE_RH_URL}/rest/v1/employees?id=eq.${empId}`, {
-                method: 'DELETE',
-                headers: {
-                    'apikey': SUPABASE_RH_KEY,
-                    'Authorization': `Bearer ${SUPABASE_RH_KEY}`
+        const resp = await fetch(SUPABASE_RH_URL + '/rest/v1/employees?id=eq.' + empId, {
+            method: 'DELETE',
+            headers: {
+                'apikey': SUPABASE_RH_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_RH_KEY,
+                'Prefer': 'return=representation'
+            }
+        });
+
+        if (!resp.ok) {
+            const errText = await resp.text();
+            throw new Error('Erreur suppression (' + resp.status + '): ' + errText);
+        }
+
+        const deletedRows = await resp.json();
+        console.log('[DELETE] Confirmation Supabase:', deletedRows);
+
+        employees = employees.filter(function(e) { return e.id !== empId; });
+
+        processEmployeesFormationsStatus();
+        updateStats();
+        renderPersonnel();
+        renderConges();
+        renderPlanning();
+        renderFormationsMatrix();
+
+        showToast('Salarié supprimé avec succès.', 'success');
+        return true;
+    } catch (err) {
+        console.error('[DELETE] Échec:', err);
+        alert('Impossible de supprimer le salarié : ' + err.message);
+        showToast('Échec de suppression : ' + err.message, 'error');
+        return false;
+    }
+}
+
+// 4. SUPABASE REALTIME (WEBSOCKETS) (Étape 10 & 11)
+function initSupabaseRealtime() {
+    if (window.supabase) {
+        supabaseClient = window.supabase.createClient(SUPABASE_RH_URL, SUPABASE_RH_KEY);
+
+        supabaseClient
+            .channel('employees-realtime-v150')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'employees' },
+                function(payload) {
+                    console.log('[REALTIME EVENT]', payload.eventType, payload);
+                    handleEmployeeRealtimeChange(payload);
+                }
+            )
+            .subscribe(function(status) {
+                console.log('[REALTIME STATUS]', status);
+                if (status === 'SUBSCRIBED') {
+                    updateRhSyncBadge(true, 'Realtime WebSockets Actif (' + employees.length + ' salariés)');
                 }
             });
+    }
+
+    loadEmployees();
+}
+
+function handleEmployeeRealtimeChange(payload) {
+    if (!payload) return;
+    const eventType = payload.eventType;
+    const newRow = payload.new;
+    const oldRow = payload.old;
+
+    if (eventType === 'INSERT' && newRow && newRow.id && !newRow.id.startsWith("rh_")) {
+        const emp = parseDbRowToEmployee(newRow);
+        if (emp && !employees.some(function(e) { return e.id === emp.id; })) {
+            employees.push(emp);
+            processEmployeesFormationsStatus();
+            updateStats();
+            renderPersonnel();
+            renderConges();
+            renderPlanning();
+            renderFormationsMatrix();
         }
-    } catch(e) {
-        console.warn("deleteEmployeeAtomically error:", e);
+    } else if (eventType === 'UPDATE' && newRow && newRow.id && !newRow.id.startsWith("rh_")) {
+        const updatedEmp = parseDbRowToEmployee(newRow);
+        if (updatedEmp) {
+            employees = employees.map(function(e) { return e.id === updatedEmp.id ? updatedEmp : e; });
+            processEmployeesFormationsStatus();
+            updateStats();
+            renderPersonnel();
+            renderConges();
+            renderPlanning();
+            renderFormationsMatrix();
+        }
+    } else if (eventType === 'DELETE' && oldRow && oldRow.id) {
+        employees = employees.filter(function(e) { return e.id !== oldRow.id; });
+        processEmployeesFormationsStatus();
+        updateStats();
+        renderPersonnel();
+        renderConges();
+        renderPlanning();
+        renderFormationsMatrix();
+    } else {
+        loadEmployees();
     }
 }
 
@@ -2841,14 +2914,19 @@ function updateRhSyncBadge(isOnline, message) {
     const badge = document.getElementById('cloud-sync-status-badge');
     if (badge) {
         badge.innerHTML = isOnline 
-            ? `<span style="color: #16a34a;"><i class="fa-solid fa-wifi"></i> ${message}</span>`
-            : `<span style="color: #ca8a04;"><i class="fa-solid fa-arrows-rotate fa-spin"></i> ${message}</span>`;
+            ? '<span style="color: #16a34a;"><i class="fa-solid fa-database"></i> ' + message + '</span>'
+            : '<span style="color: #ca8a04;"><i class="fa-solid fa-arrows-rotate fa-spin"></i> ' + message + '</span>';
     }
 }
 
-function saveEmployeesToStorage() {
-    // Single-row atomic operations handled individually by saveEmployeeAtomically()
-}
+// Auxiliary Global Window Attachments
+window.saveEmployee = saveEmployee;
+window.deleteEmployee = deleteEmployee;
+window.loadEmployees = loadEmployees;
+window.saveEmployeeForm = saveEmployeeForm;
 
+function saveEmployeesToStorage() {}
 function savePlanningToStorage() {}
 function saveSettingsToStorage() {}
+function saveEmployeeAtomically(emp) { return saveEmployee(emp); }
+function deleteEmployeeAtomically(empId) { return deleteEmployee(empId); }
