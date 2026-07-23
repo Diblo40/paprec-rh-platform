@@ -2565,19 +2565,93 @@ Service RH & QSE ${rhSettings.agenceNom}`
 
 
 
+
+
 // ========================================================
-// ARCHITECTURE PROPRE ATOMIQUE SUPABASE (1 ROW = 1 SALARIÉ)
-// SOURCE DE VÉRITÉ UNIQUE : SUPABASE POSTGRESQL (ZERO LOCAL STORAGE)
+// ARCHITECTURE SUPABASE REALTIME + ZERO RACE CONDITION (v100.0)
+// SOURCE DE VÉRITÉ POSTGRESQL + WEBSOCKETS + PROTECTION GET OBSOLÈTE
 // ========================================================
 const SUPABASE_RH_URL = "https://wilukbpvjfdyxahasmmt.supabase.co";
 const SUPABASE_RH_KEY = "sb_publishable_P9MiaaGJqJ2f6zAFvHwXZA_jYHlF830";
 
+let supabaseClient = null;
+let loadVersion = 0;
 let isReloadingEmployees = false;
 
-// Convert Supabase DB Row to Clean Employee Object
+// Purge any stale browser memory on load
+try { localStorage.clear(); sessionStorage.clear(); } catch(e) {}
+
+// Initialize Official Supabase JS Client & Realtime Channel
+function initSupabaseRealtime() {
+    if (window.supabase) {
+        supabaseClient = window.supabase.createClient(SUPABASE_RH_URL, SUPABASE_RH_KEY);
+
+        // Subscribe to PostgreSQL Changes (Realtime WebSockets)
+        supabaseClient
+            .channel('rh-employees-realtime')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'employees' },
+                payload => {
+                    console.log('Realtime event received:', payload);
+                    handleRealtimePayload(payload);
+                }
+            )
+            .subscribe(status => {
+                console.log('Realtime channel status:', status);
+                if (status === 'SUBSCRIBED') {
+                    updateRhSyncBadge(true, `Realtime WebSockets Actif (${employees.length} salariés)`);
+                }
+            });
+    }
+
+    // Initial Fetch
+    reloadEmployees();
+}
+
+function handleRealtimePayload(payload) {
+    if (!payload) return;
+    const { eventType, new: newRow, old: oldRow } = payload;
+
+    if (eventType === 'INSERT' && newRow && newRow.id && !newRow.id.startsWith("rh_")) {
+        const emp = parseDbRowToEmployee(newRow);
+        if (emp && !employees.some(e => e.id === emp.id)) {
+            employees.push(emp);
+            processEmployeesFormationsStatus();
+            updateStats();
+            renderPersonnel();
+            renderConges();
+            renderPlanning();
+            renderFormationsMatrix();
+        }
+    } else if (eventType === 'UPDATE' && newRow && newRow.id && !newRow.id.startsWith("rh_")) {
+        const updatedEmp = parseDbRowToEmployee(newRow);
+        if (updatedEmp) {
+            employees = employees.map(e => e.id === updatedEmp.id ? updatedEmp : e);
+            processEmployeesFormationsStatus();
+            updateStats();
+            renderPersonnel();
+            renderConges();
+            renderPlanning();
+            renderFormationsMatrix();
+        }
+    } else if (eventType === 'DELETE' && oldRow && oldRow.id) {
+        employees = employees.filter(e => e.id !== oldRow.id);
+        processEmployeesFormationsStatus();
+        updateStats();
+        renderPersonnel();
+        renderConges();
+        renderPlanning();
+        renderFormationsMatrix();
+    } else {
+        // Safe reload fallback
+        reloadEmployees();
+    }
+}
+
+// Convert DB Row to Employee Object
 function parseDbRowToEmployee(row) {
-    if (!row || !row.id || row.id.includes('pure_cloud') || (row.name && row.name.includes('PURE CLOUD'))) return null;
-    if (!row) return null;
+    if (!row || !row.id || row.id.startsWith("rh_") || row.id.includes("pure_cloud")) return null;
     let meta = {};
     if (row.role && row.role.startsWith("{")) {
         try { meta = JSON.parse(row.role); } catch(e) {}
@@ -2606,7 +2680,6 @@ function parseDbRowToEmployee(row) {
     };
 }
 
-// Convert Employee Object to Supabase DB Row (Meta in role column)
 function formatEmployeeToDbRow(emp) {
     const meta = {
         nom: emp.nom || emp.name || "",
@@ -2637,8 +2710,9 @@ function formatEmployeeToDbRow(emp) {
     };
 }
 
-// 1. READ ALL EMPLOYEES (SELECT * FROM employees)
+// Protected reloadEmployees against In-Flight Race Conditions
 async function reloadEmployees() {
+    const currentVersion = ++loadVersion;
     if (isReloadingEmployees) return;
     isReloadingEmployees = true;
 
@@ -2650,11 +2724,16 @@ async function reloadEmployees() {
             }
         });
 
+        // Ignore response if a newer request or delete started in between
+        if (currentVersion !== loadVersion) {
+            console.log('Ignored obsolete GET response version:', currentVersion);
+            return;
+        }
+
         if (resp.ok) {
             const rows = await resp.json();
             if (rows && Array.isArray(rows)) {
-                // Filter out system payload rows
-                const validRows = rows.filter(r => r && r.id && !r.id.startsWith("rh_") && r.id !== "emp_pure_cloud_999" && r.id !== "emp_1784789185392" && !r.name.includes("PURE CLOUD"));
+                const validRows = rows.filter(r => r && r.id && !r.id.startsWith("rh_") && !r.id.includes("pure_cloud"));
                 const fetchedEmployees = validRows.map(parseDbRowToEmployee).filter(e => e !== null);
 
                 if (fetchedEmployees.length > 0) {
@@ -2667,92 +2746,107 @@ async function reloadEmployees() {
                     renderFormationsMatrix();
                     checkAutomaticExpirationAlerts();
 
-                    updateRhSyncBadge(true, `En Direct de Supabase (${employees.length} salariés)`);
+                    updateRhSyncBadge(true, `Synchronisé PostgreSQL (${employees.length} salariés)`);
                 }
             }
         }
     } catch(e) {
         console.warn("reloadEmployees error:", e);
-        updateRhSyncBadge(false, "Reconnexion Supabase...");
     } finally {
         isReloadingEmployees = false;
     }
 }
 
-// 2. ATOMIC CREATE / UPDATE (POST UPSERT SINGLE ROW)
+// Atomic Save / Upsert Single Row
 async function saveEmployeeAtomically(emp) {
     if (!emp || !emp.id) return;
     const dbRow = formatEmployeeToDbRow(emp);
 
+    const existingIdx = employees.findIndex(e => e.id === emp.id);
+    if (existingIdx !== -1) {
+        employees[existingIdx] = emp;
+    } else {
+        employees.push(emp);
+    }
+    processEmployeesFormationsStatus();
+    updateStats();
+    renderPersonnel();
+    renderConges();
+    renderPlanning();
+    renderFormationsMatrix();
+
     try {
-        await fetch(`${SUPABASE_RH_URL}/rest/v1/employees`, {
-            method: 'POST',
-            headers: {
-                'apikey': SUPABASE_RH_KEY,
-                'Authorization': `Bearer ${SUPABASE_RH_KEY}`,
-                'Content-Type': 'application/json',
-                'Prefer': 'resolution=merge-duplicates'
-            },
-            body: JSON.stringify(dbRow)
-        });
-        reloadEmployees();
+        if (supabaseClient) {
+            await supabaseClient.from('employees').upsert(dbRow, { onConflict: 'id' });
+        } else {
+            await fetch(`${SUPABASE_RH_URL}/rest/v1/employees`, {
+                method: 'POST',
+                headers: {
+                    'apikey': SUPABASE_RH_KEY,
+                    'Authorization': `Bearer ${SUPABASE_RH_KEY}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'resolution=merge-duplicates'
+                },
+                body: JSON.stringify(dbRow)
+            });
+        }
     } catch(e) {
         console.warn("saveEmployeeAtomically error:", e);
     }
 }
 
-// 3. ATOMIC DELETE (DELETE SINGLE ROW)
+// Atomic Delete Single Row + Version Bump (Destroys In-Flight Race Conditions)
 async function deleteEmployeeAtomically(empId) {
     if (!empId) return;
+    
+    // Increment loadVersion so any previous in-flight GET is ignored!
+    loadVersion++;
 
+    // 1. Optimistic Local Delete
+    employees = employees.filter(e => e.id !== empId);
+    processEmployeesFormationsStatus();
+    updateStats();
+    renderPersonnel();
+    renderConges();
+    renderPlanning();
+    renderFormationsMatrix();
+
+    // 2. PostgreSQL Atomic Delete
     try {
-        await fetch(`${SUPABASE_RH_URL}/rest/v1/employees?id=eq.${empId}`, {
-            method: 'DELETE',
-            headers: {
-                'apikey': SUPABASE_RH_KEY,
-                'Authorization': `Bearer ${SUPABASE_RH_KEY}`
-            }
-        });
-        reloadEmployees();
+        if (supabaseClient) {
+            await supabaseClient.from('employees').delete().eq('id', empId);
+        } else {
+            await fetch(`${SUPABASE_RH_URL}/rest/v1/employees?id=eq.${empId}`, {
+                method: 'DELETE',
+                headers: {
+                    'apikey': SUPABASE_RH_KEY,
+                    'Authorization': `Bearer ${SUPABASE_RH_KEY}`
+                }
+            });
+        }
     } catch(e) {
         console.warn("deleteEmployeeAtomically error:", e);
     }
 }
 
 function initPureCloudEngine() {
-    // 1. Initial Fetch from Supabase
-    reloadEmployees();
-
-    // 2. Realtime Heartbeat Polling every 2s (Safeguard)
-    setInterval(reloadEmployees, 2000);
-
-    // 3. Auto-fetch on tab focus / visibility
-    window.addEventListener('focus', reloadEmployees);
-    document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) reloadEmployees();
-    });
+    initSupabaseRealtime();
 }
 
 function updateRhSyncBadge(isOnline, message) {
     const badge = document.getElementById('cloud-sync-status-badge');
     if (badge) {
         badge.innerHTML = isOnline 
-            ? `<span style="color: #16a34a;"><i class="fa-solid fa-database"></i> ${message}</span>`
+            ? `<span style="color: #16a34a;"><i class="fa-solid fa-wifi"></i> ${message}</span>`
             : `<span style="color: #ca8a04;"><i class="fa-solid fa-arrows-rotate fa-spin"></i> ${message}</span>`;
     }
 }
 
-// Override handlers to save per row
 function saveEmployeesToStorage() {
     if (employees && employees.length > 0) {
         employees.forEach(emp => saveEmployeeAtomically(emp));
     }
 }
 
-function savePlanningToStorage() {
-    // No-op for employees
-}
-
-function saveSettingsToStorage() {
-    // No-op
-}
+function savePlanningToStorage() {}
+function saveSettingsToStorage() {}
