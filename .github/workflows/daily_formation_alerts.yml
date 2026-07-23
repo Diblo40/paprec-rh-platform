@@ -1,0 +1,32 @@
+name: Alertes Automatiques Echeance Formations RH (J-30 & Jour J)
+
+on:
+  schedule:
+    # Execution automatique chaque matin a 07:00 UTC (09:00 heure francaise)
+    - cron: '0 7 * * *'
+  workflow_dispatch: # Permet de declencher l'alerte manuellement depuis GitHub
+
+jobs:
+  check-and-send-alerts:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout du depot
+        uses: actions/checkout@v4
+
+      - name: Configuration de Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Execution du Script d'Alerte et d'Envoi d'Emails
+        env:
+          SUPABASE_URL: "https://wilukbpvjfdyxahasmmt.supabase.co"
+          SUPABASE_KEY: "sb_publishable_P9MiaaGJqJ2f6zAFvHwXZA_jYHlF830"
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          ALERT_TO_EMAIL: ${{ secrets.ALERT_TO_EMAIL }}
+        run: |
+          python scripts/check_formation_alerts.py
