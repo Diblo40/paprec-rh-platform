@@ -727,8 +727,8 @@ function saveEmployeeForm(e) {
 function deleteEmployee(empId) {
     if (confirm('Voulez-vous vraiment supprimer ce collaborateur du système RH ?')) {
         employees = employees.filter(e => e.id !== empId);
+        deleteEmployeeAtomically(empId);
         processEmployeesFormationsStatus();
-        saveEmployeesToStorage();
         updateStats();
         renderPersonnel();
         renderConges();
