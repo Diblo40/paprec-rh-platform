@@ -80,14 +80,17 @@ function init() {
 function saveEmployeesToStorage() {
     localStorage.setItem(STORAGE_EMP_KEY, JSON.stringify(employees));
     checkStorageUsage();
+    triggerCloudPush();
 }
 
 function savePlanningToStorage() {
     localStorage.setItem(STORAGE_PLANNING_KEY, JSON.stringify(planningData));
+    triggerCloudPush();
 }
 
 function saveSettingsToStorage() {
     localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify(rhSettings));
+    triggerCloudPush();
 }
 
 function checkStorageUsage() {
@@ -2530,20 +2533,22 @@ Service RH & QSE ${rhSettings.agenceNom}`
 
 
 
+
 // ========================================================
-// REAL-TIME MULTI-DEVICE CLOUD SYNC ENGINE FOR PAPREC RH (SUPABASE DIRECT)
+// REAL-TIME MULTI-DEVICE CLOUD SYNC ENGINE FOR PAPREC RH (INSTANT 5S POLLING)
 // ========================================================
 const DEFAULT_RH_SUPABASE_URL = "https://wilukbpvjfdyxahasmmt.supabase.co";
 const DEFAULT_RH_SUPABASE_KEY = "sb_publishable_P9MiaaGJqJ2f6zAFvHwXZA_jYHlF830";
 
 let cloudPushDebounce = null;
 let lastCloudSyncTimestamp = 0;
+let isPushingToCloud = false;
 
 function triggerCloudPush() {
     clearTimeout(cloudPushDebounce);
     cloudPushDebounce = setTimeout(() => {
         pushDataToCloud();
-    }, 1200);
+    }, 200); // Fast 200ms push
 }
 
 function getCloudSyncPayload() {
@@ -2556,6 +2561,9 @@ function getCloudSyncPayload() {
 }
 
 async function pushDataToCloud() {
+    if (isPushingToCloud) return;
+    isPushingToCloud = true;
+
     const payload = getCloudSyncPayload();
     lastCloudSyncTimestamp = payload.timestamp;
 
@@ -2563,22 +2571,16 @@ async function pushDataToCloud() {
     const supaKey = localStorage.getItem('paprec_supabase_key') || DEFAULT_RH_SUPABASE_KEY;
 
     try {
+        updateCloudSyncBadge(true, "Envoi au Cloud...");
         const payloadStr = JSON.stringify(payload);
-        const record = {
-            id: "rh_global_state",
-            name: "RH_STATE_PAYLOAD",
-            role: payloadStr.substring(0, 1000), // snippet fallback
-            entryDate: new Date().toISOString()
-        };
 
-        // Try direct push to Supabase REST API
-        const resp = await fetch(`${supaUrl}/rest/v1/employees?id=eq.rh_global_state`, {
+        // Try PATCH first
+        const patchResp = await fetch(`${supaUrl}/rest/v1/employees?id=eq.rh_global_state`, {
             method: 'PATCH',
             headers: {
                 'apikey': supaKey,
                 'Authorization': `Bearer ${supaKey}`,
-                'Content-Type': 'application/json',
-                'Prefer': 'return=minimal'
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
                 name: payloadStr,
@@ -2586,8 +2588,8 @@ async function pushDataToCloud() {
             })
         });
 
-        if (!resp.ok) {
-            // If patch didn't find row, insert it
+        // If row not existing, insert
+        if (!patchResp.ok || patchResp.status === 404) {
             await fetch(`${supaUrl}/rest/v1/employees`, {
                 method: 'POST',
                 headers: {
@@ -2609,10 +2611,14 @@ async function pushDataToCloud() {
     } catch (e) {
         console.warn("RH Cloud Push error:", e);
         updateCloudSyncBadge(false, "Stockage Local (Non connecté)");
+    } finally {
+        isPushingToCloud = false;
     }
 }
 
 async function pullDataFromCloud() {
+    if (isPushingToCloud) return;
+
     const supaUrl = localStorage.getItem('paprec_supabase_url') || DEFAULT_RH_SUPABASE_URL;
     const supaKey = localStorage.getItem('paprec_supabase_key') || DEFAULT_RH_SUPABASE_KEY;
 
@@ -2677,12 +2683,15 @@ function applyCloudPayload(cloudRecord) {
 
 function initCloudSync() {
     pullDataFromCloud();
-    // Auto-poll cloud changes every 10 seconds across all devices
-    setInterval(pullDataFromCloud, 10000);
+    // Auto-poll cloud changes every 5 seconds across all devices
+    setInterval(pullDataFromCloud, 5000);
 
-    // Auto-pull when window regains focus
+    // Auto-pull when window regains focus or visibility
     window.addEventListener('focus', () => {
         pullDataFromCloud();
+    });
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) pullDataFromCloud();
     });
 }
 
