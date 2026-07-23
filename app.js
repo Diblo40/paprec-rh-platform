@@ -1,3 +1,9 @@
+// Complete Local Storage Purge to ensure ZERO stale device data
+try {
+    localStorage.clear();
+    sessionStorage.clear();
+} catch(e) {}
+
 
 // Purge stale local storage business data to prevent cloud contamination
 try {
