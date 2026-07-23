@@ -2529,10 +2529,13 @@ Service RH & QSE ${rhSettings.agenceNom}`
 }
 
 
+
 // ========================================================
-// REAL-TIME MULTI-DEVICE CLOUD SYNC ENGINE (SUPABASE / CLOUD REST)
+// REAL-TIME MULTI-DEVICE CLOUD SYNC ENGINE FOR PAPREC RH (SUPABASE DIRECT)
 // ========================================================
-const CLOUD_SYNC_KEY = 'paprec_rh_cloud_sync_v1';
+const DEFAULT_RH_SUPABASE_URL = "https://wilukbpvjfdyxahasmmt.supabase.co";
+const DEFAULT_RH_SUPABASE_KEY = "sb_publishable_P9MiaaGJqJ2f6zAFvHwXZA_jYHlF830";
+
 let cloudPushDebounce = null;
 let lastCloudSyncTimestamp = 0;
 
@@ -2540,7 +2543,7 @@ function triggerCloudPush() {
     clearTimeout(cloudPushDebounce);
     cloudPushDebounce = setTimeout(() => {
         pushDataToCloud();
-    }, 1500);
+    }, 1200);
 }
 
 function getCloudSyncPayload() {
@@ -2556,13 +2559,36 @@ async function pushDataToCloud() {
     const payload = getCloudSyncPayload();
     lastCloudSyncTimestamp = payload.timestamp;
 
-    // 1. Try Supabase if configured
-    const supaUrl = localStorage.getItem('paprec_supabase_url');
-    const supaKey = localStorage.getItem('paprec_supabase_key');
+    const supaUrl = localStorage.getItem('paprec_supabase_url') || DEFAULT_RH_SUPABASE_URL;
+    const supaKey = localStorage.getItem('paprec_supabase_key') || DEFAULT_RH_SUPABASE_KEY;
 
-    if (supaUrl && supaKey) {
-        try {
-            await fetch(`${supaUrl}/rest/v1/rh_store`, {
+    try {
+        const payloadStr = JSON.stringify(payload);
+        const record = {
+            id: "rh_global_state",
+            name: "RH_STATE_PAYLOAD",
+            role: payloadStr.substring(0, 1000), // snippet fallback
+            entryDate: new Date().toISOString()
+        };
+
+        // Try direct push to Supabase REST API
+        const resp = await fetch(`${supaUrl}/rest/v1/employees?id=eq.rh_global_state`, {
+            method: 'PATCH',
+            headers: {
+                'apikey': supaKey,
+                'Authorization': `Bearer ${supaKey}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({
+                name: payloadStr,
+                entryDate: new Date().toISOString()
+            })
+        });
+
+        if (!resp.ok) {
+            // If patch didn't find row, insert it
+            await fetch(`${supaUrl}/rest/v1/employees`, {
                 method: 'POST',
                 headers: {
                     'apikey': supaKey,
@@ -2570,65 +2596,52 @@ async function pushDataToCloud() {
                     'Content-Type': 'application/json',
                     'Prefer': 'resolution=merge-duplicates'
                 },
-                body: JSON.stringify({ id: 'main', payload: payload, updated_at: new Date().toISOString() })
+                body: JSON.stringify({
+                    id: "rh_global_state",
+                    name: payloadStr,
+                    role: "RH_STATE_PAYLOAD",
+                    entryDate: new Date().toISOString()
+                })
             });
-            updateCloudSyncBadge(true, "Synchronisé Cloud en temps réel");
-            return;
-        } catch (e) {
-            console.warn("Supabase push error:", e);
         }
-    }
 
-    // 2. Fallback to free Public KV Cloud Sync (jsonbin.io / myjson api)
-    try {
-        const binId = localStorage.getItem('paprec_cloud_bin_id') || '6690123456789';
-        await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Master-Key': '$2a$10$paprecRHplatformSecretKeySync2026'
-            },
-            body: JSON.stringify(payload)
-        });
         updateCloudSyncBadge(true, "Synchronisé Cloud (Multi-Appareils)");
     } catch (e) {
-        updateCloudSyncBadge(false, "Stockage Local (Non connecté Cloud)");
+        console.warn("RH Cloud Push error:", e);
+        updateCloudSyncBadge(false, "Stockage Local (Non connecté)");
     }
 }
 
 async function pullDataFromCloud() {
-    const supaUrl = localStorage.getItem('paprec_supabase_url');
-    const supaKey = localStorage.getItem('paprec_supabase_key');
+    const supaUrl = localStorage.getItem('paprec_supabase_url') || DEFAULT_RH_SUPABASE_URL;
+    const supaKey = localStorage.getItem('paprec_supabase_key') || DEFAULT_RH_SUPABASE_KEY;
 
-    if (supaUrl && supaKey) {
-        try {
-            const resp = await fetch(`${supaUrl}/rest/v1/rh_store?id=eq.main`, {
-                headers: { 'apikey': supaKey, 'Authorization': `Bearer ${supaKey}` }
-            });
-            const data = await resp.json();
-            if (data && data[0] && data[0].payload) {
-                applyCloudPayload(data[0].payload);
-                updateCloudSyncBadge(true, "Synchronisé Cloud en temps réel");
-            }
-            return;
-        } catch (e) {
-            console.warn("Supabase pull error:", e);
-        }
-    }
-
-    // Fallback JSONBin
     try {
-        const binId = localStorage.getItem('paprec_cloud_bin_id') || '6690123456789';
-        const resp = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
-            headers: { 'X-Master-Key': '$2a$10$paprecRHplatformSecretKeySync2026' }
+        const resp = await fetch(`${supaUrl}/rest/v1/employees?id=eq.rh_global_state&select=*`, {
+            headers: {
+                'apikey': supaKey,
+                'Authorization': `Bearer ${supaKey}`
+            }
         });
-        const json = await resp.json();
-        if (json && json.record && json.record.timestamp) {
-            applyCloudPayload(json.record);
-            updateCloudSyncBadge(true, "Synchronisé Cloud (Multi-Appareils)");
+
+        if (resp.ok) {
+            const rows = await resp.json();
+            if (rows && rows.length > 0 && rows[0].name) {
+                try {
+                    const payload = JSON.parse(rows[0].name);
+                    if (payload && payload.timestamp) {
+                        applyCloudPayload(payload);
+                        updateCloudSyncBadge(true, "Synchronisé Cloud (Multi-Appareils)");
+                        return;
+                    }
+                } catch (jsonErr) {
+                    console.warn("Payload parse err:", jsonErr);
+                }
+            }
         }
     } catch (e) {
-        // Quiet fallback
+        console.warn("RH Cloud Pull error:", e);
+        updateCloudSyncBadge(false, "Stockage Local (Non connecté)");
     }
 }
 
@@ -2639,16 +2652,17 @@ function applyCloudPayload(cloudRecord) {
     lastCloudSyncTimestamp = cloudRecord.timestamp;
 
     if (cloudRecord.employees && Array.isArray(cloudRecord.employees)) {
-        employees = cloudRecord.employees;
-        saveEmployeesToStorage();
+        // Exclude system payload row if present
+        employees = cloudRecord.employees.filter(e => e.id !== "rh_global_state");
+        localStorage.setItem(STORAGE_EMP_KEY, JSON.stringify(employees));
     }
     if (cloudRecord.planning) {
         planningData = cloudRecord.planning;
-        savePlanningToStorage();
+        localStorage.setItem(STORAGE_PLANNING_KEY, JSON.stringify(planningData));
     }
     if (cloudRecord.settings) {
         rhSettings = cloudRecord.settings;
-        saveSettingsToStorage();
+        localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify(rhSettings));
         updateSettingsDisplay();
     }
 
@@ -2663,8 +2677,13 @@ function applyCloudPayload(cloudRecord) {
 
 function initCloudSync() {
     pullDataFromCloud();
-    // Auto-poll cloud changes every 15 seconds across all devices
-    setInterval(pullDataFromCloud, 15000);
+    // Auto-poll cloud changes every 10 seconds across all devices
+    setInterval(pullDataFromCloud, 10000);
+
+    // Auto-pull when window regains focus
+    window.addEventListener('focus', () => {
+        pullDataFromCloud();
+    });
 }
 
 function updateCloudSyncBadge(isOnline, message) {
