@@ -2545,56 +2545,20 @@ Service RH & QSE ${rhSettings.agenceNom}`
 
 
 
+
+
 // ========================================================
-// 100% GUARANTEED AUTOMATIC CLOUD SYNC ENGINE FOR PAPREC RH (ATOMIC POST UPSERT)
+// PURE CLOUD-FIRST ENGINE FOR PAPREC RH (ZERO LOCAL STORAGE DEPENDENCY)
 // ========================================================
 const SUPABASE_RH_URL = "https://wilukbpvjfdyxahasmmt.supabase.co";
 const SUPABASE_RH_KEY = "sb_publishable_P9MiaaGJqJ2f6zAFvHwXZA_jYHlF830";
 
-let isRhSyncing = false;
-let hasInitialPullCompleted = false;
-
-function triggerCloudPush() {
-    if (!hasInitialPullCompleted) return;
-    pushDataToCloud();
-}
-
-function mergeEmployeeLists(localList, cloudList) {
-    const map = new Map();
-
-    if (Array.isArray(cloudList)) {
-        cloudList.forEach(emp => {
-            if (emp && emp.id && emp.id !== "rh_platform_master_state") {
-                map.set(emp.id, emp);
-            }
-        });
-    }
-
-    if (Array.isArray(localList)) {
-        localList.forEach(emp => {
-            if (emp && emp.id && emp.id !== "rh_platform_master_state") {
-                if (!map.has(emp.id)) {
-                    map.set(emp.id, emp);
-                } else {
-                    const existing = map.get(emp.id);
-                    const empFormCount = (emp.formations || []).filter(f => f.dateRecyclage || f.dateObtention).length;
-                    const existFormCount = (existing.formations || []).filter(f => f.dateRecyclage || f.dateObtention).length;
-                    if (empFormCount > existFormCount) {
-                        map.set(emp.id, emp);
-                    }
-                }
-            }
-        });
-    }
-
-    return Array.from(map.values());
-}
-
-
+let isPureCloudSyncing = false;
+let lastCloudPayloadHash = "";
 
 async function pushDataToCloud() {
-    if (isRhSyncing) return;
-    isRhSyncing = true;
+    if (isPureCloudSyncing) return;
+    isPureCloudSyncing = true;
 
     const payload = {
         timestamp: Date.now(),
@@ -2605,6 +2569,7 @@ async function pushDataToCloud() {
 
     try {
         const payloadStr = JSON.stringify(payload);
+        lastCloudPayloadHash = payloadStr;
 
         const resp = await fetch(`${SUPABASE_RH_URL}/rest/v1/employees`, {
             method: 'POST',
@@ -2623,18 +2588,18 @@ async function pushDataToCloud() {
         });
 
         if (resp.ok) {
-            updateRhSyncBadge(true, `Cloud & IndexedDB Actif (${employees.length} salariés)`);
+            updateRhSyncBadge(true, `En Direct du Cloud (${employees.length} salariés)`);
         }
     } catch(e) {
         console.warn("pushDataToCloud error:", e);
+        updateRhSyncBadge(false, "Reconnexion Cloud...");
     } finally {
-        isRhSyncing = false;
+        isPureCloudSyncing = false;
     }
 }
 
-
-async function pullDataFromCloud(isInitial = false) {
-    if (isRhSyncing) return false;
+async function fetchPureCloudState(isInitial = false) {
+    if (isPureCloudSyncing) return false;
 
     try {
         const resp = await fetch(`${SUPABASE_RH_URL}/rest/v1/employees?id=eq.rh_platform_master_state&select=*`, {
@@ -2647,25 +2612,23 @@ async function pullDataFromCloud(isInitial = false) {
         if (resp.ok) {
             const rows = await resp.json();
             if (rows && rows.length > 0 && rows[0].name) {
-                try {
-                    const payload = JSON.parse(rows[0].name);
-                    if (payload && payload.employees && Array.isArray(payload.employees)) {
-                        
-                        const mergedEmps = mergeEmployeeLists(employees, payload.employees);
-                        const empCountChanged = (mergedEmps.length !== employees.length);
-                        const empStrChanged = (JSON.stringify(employees) !== JSON.stringify(mergedEmps));
+                const payloadStr = rows[0].name;
 
-                        if (empCountChanged || empStrChanged || isInitial) {
-                            employees = mergedEmps;
-                            localStorage.setItem(STORAGE_EMP_KEY, JSON.stringify(employees));
+                // Update UI only if cloud payload actually changed or initial load
+                if (isInitial || payloadStr !== lastCloudPayloadHash) {
+                    lastCloudPayloadHash = payloadStr;
+
+                    try {
+                        const payload = JSON.parse(payloadStr);
+                        if (payload && payload.employees && Array.isArray(payload.employees)) {
+                            
+                            employees = payload.employees.filter(e => e.id !== "rh_platform_master_state");
 
                             if (payload.planning) {
                                 planningData = payload.planning;
-                                localStorage.setItem(STORAGE_PLANNING_KEY, JSON.stringify(planningData));
                             }
                             if (payload.settings) {
                                 rhSettings = payload.settings;
-                                localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify(rhSettings));
                                 updateSettingsDisplay();
                             }
 
@@ -2677,176 +2640,33 @@ async function pullDataFromCloud(isInitial = false) {
                             renderFormationsMatrix();
                             checkAutomaticExpirationAlerts();
 
-                            if (mergedEmps.length > payload.employees.length) {
-                                isRhSyncing = false;
-                                hasInitialPullCompleted = true;
-                                pushDataToCloud();
-                            }
+                            updateRhSyncBadge(true, `En Direct du Cloud (${employees.length} salariés)`);
+                            return true;
                         }
-
-                        hasInitialPullCompleted = true;
-                        updateCloudSyncBadge(true, `Synchronisé (${employees.length} salariés)`);
-                        return true;
+                    } catch(parseErr) {
+                        console.warn("Parse error:", parseErr);
                     }
-                } catch(parseErr) {
-                    console.warn("Parse error:", parseErr);
                 }
             }
         }
     } catch(e) {
-        console.warn("pullDataFromCloud error:", e);
+        console.warn("fetchPureCloudState error:", e);
+        updateRhSyncBadge(false, "Reconnexion Cloud...");
     }
-    hasInitialPullCompleted = true;
     return false;
 }
 
-function initCloudSync() {
-    pullDataFromCloud(true);
-    // Auto-poll cloud changes every 3 seconds across all devices
-    setInterval(() => pullDataFromCloud(false), 3000);
+function initPureCloudEngine() {
+    // 1. Fetch Cloud Master State immediately on load (0ms local storage read)
+    fetchPureCloudState(true);
 
-    window.addEventListener('focus', () => pullDataFromCloud(false));
+    // 2. Direct Cloud Heartbeat - Auto-poll Cloud every 2 seconds across all devices
+    setInterval(() => fetchPureCloudState(false), 2000);
+
+    // 3. Fetch instantly on tab focus or visibility
+    window.addEventListener('focus', () => fetchPureCloudState(false));
     document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) pullDataFromCloud(false);
-    });
-}
-
-function updateCloudSyncBadge(isOnline, message) {
-    const badge = document.getElementById('cloud-sync-status-badge');
-    if (badge) {
-        badge.innerHTML = isOnline 
-            ? `<span style="color: #16a34a;"><i class="fa-solid fa-cloud-check"></i> ${message}</span>`
-            : `<span style="color: #ca8a04;"><i class="fa-solid fa-cloud"></i> ${message}</span>`;
-    }
-}
-
-
-// ========================================================
-// HYBRID ENTERPRISE ENGINE (INDEXEDDB + SUPABASE REALTIME) - RH PLATFORM
-// ========================================================
-const HYBRID_RH_DB_NAME = "PaprecRH_HybridStore";
-const HYBRID_RH_DB_VERSION = 1;
-
-function openRhIndexedDB() {
-    return new Promise((resolve, reject) => {
-        const req = indexedDB.open(HYBRID_RH_DB_NAME, HYBRID_RH_DB_VERSION);
-        req.onupgradeneeded = (e) => {
-            const db = e.target.result;
-            if (!db.objectStoreNames.contains("rh_kv_store")) {
-                db.createObjectStore("rh_kv_store");
-            }
-        };
-        req.onsuccess = (e) => resolve(e.target.result);
-        req.onerror = (e) => reject(e.target.error);
-    });
-}
-
-async function rhIdbSet(key, val) {
-    try {
-        const db = await openRhIndexedDB();
-        const tx = db.transaction("rh_kv_store", "readwrite");
-        tx.objectStore("rh_kv_store").put(val, key);
-    } catch(e) {}
-}
-
-async function rhIdbGet(key) {
-    try {
-        const db = await openRhIndexedDB();
-        const tx = db.transaction("rh_kv_store", "readonly");
-        return new Promise((resolve) => {
-            const req = tx.objectStore("rh_kv_store").get(key);
-            req.onsuccess = () => resolve(req.result);
-            req.onerror = () => resolve(null);
-        });
-    } catch(e) { return null; }
-}
-
-let isRhHybridSyncing = false;
-
-async function syncRhHybridState() {
-    if (isRhHybridSyncing) return;
-    isRhHybridSyncing = true;
-
-    try {
-        const resp = await fetch(`${SUPABASE_RH_URL}/rest/v1/employees?id=eq.rh_platform_master_state&select=*`, {
-            headers: {
-                'apikey': SUPABASE_RH_KEY,
-                'Authorization': `Bearer ${SUPABASE_RH_KEY}`
-            }
-        });
-
-        if (resp.ok) {
-            const rows = await resp.json();
-            if (rows && rows.length > 0 && rows[0].name) {
-                try {
-                    const payload = JSON.parse(rows[0].name);
-                    if (payload && payload.employees && Array.isArray(payload.employees)) {
-                        
-                        const mergedEmps = mergeEmployeeLists(employees, payload.employees);
-                        const empCountChanged = (mergedEmps.length !== employees.length);
-                        const empStrChanged = (JSON.stringify(employees) !== JSON.stringify(mergedEmps));
-
-                        if (empCountChanged || empStrChanged) {
-                            employees = mergedEmps;
-                            await rhIdbSet(STORAGE_EMP_KEY, employees);
-                            localStorage.setItem(STORAGE_EMP_KEY, JSON.stringify(employees));
-
-                            if (payload.planning) {
-                                planningData = payload.planning;
-                                await rhIdbSet(STORAGE_PLANNING_KEY, planningData);
-                                localStorage.setItem(STORAGE_PLANNING_KEY, JSON.stringify(planningData));
-                            }
-                            if (payload.settings) {
-                                rhSettings = payload.settings;
-                                await rhIdbSet(STORAGE_SETTINGS_KEY, rhSettings);
-                                localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify(rhSettings));
-                                updateSettingsDisplay();
-                            }
-
-                            processEmployeesFormationsStatus();
-                            updateStats();
-                            renderPersonnel();
-                            renderConges();
-                            renderPlanning();
-                            renderFormationsMatrix();
-                            checkAutomaticExpirationAlerts();
-                        }
-                        updateRhSyncBadge(true, `Cloud & IndexedDB Actif (${employees.length} salariés)`);
-                    }
-                } catch(parseErr) {}
-            }
-        }
-    } catch(e) {
-        updateRhSyncBadge(false, "Stockage Hors-Ligne (IndexedDB)");
-    } finally {
-        isRhHybridSyncing = false;
-    }
-}
-
-function initRhHybridEngine() {
-    // 1. Load from IndexedDB for 0ms Instant Offline Startup
-    rhIdbGet(STORAGE_EMP_KEY).then(val => {
-        if (val && Array.isArray(val) && val.length > 0) {
-            employees = val;
-            processEmployeesFormationsStatus();
-            updateStats();
-            renderPersonnel();
-            renderConges();
-            renderPlanning();
-            renderFormationsMatrix();
-        }
-    });
-
-    // 2. Fetch Master Cloud State
-    syncRhHybridState();
-
-    // 3. Fast 2-second background sync
-    setInterval(syncRhHybridState, 2000);
-
-    // 4. Auto-sync on window focus
-    window.addEventListener('focus', syncRhHybridState);
-    document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) syncRhHybridState();
+        if (!document.hidden) fetchPureCloudState(false);
     });
 }
 
@@ -2854,10 +2674,20 @@ function updateRhSyncBadge(isOnline, message) {
     const badge = document.getElementById('cloud-sync-status-badge');
     if (badge) {
         badge.innerHTML = isOnline 
-            ? `<span style="color: #16a34a;"><i class="fa-solid fa-shield-halved"></i> ${message}</span>`
-            : `<span style="color: #ca8a04;"><i class="fa-solid fa-hard-drive"></i> ${message}</span>`;
+            ? `<span style="color: #16a34a;"><i class="fa-solid fa-cloud"></i> ${message}</span>`
+            : `<span style="color: #ca8a04;"><i class="fa-solid fa-arrows-rotate fa-spin"></i> ${message}</span>`;
     }
 }
 
-// Start RH Hybrid Engine
-initRhHybridEngine();
+// Override save handlers to trigger immediate Cloud Push
+function saveEmployeesToStorage() {
+    pushDataToCloud();
+}
+
+function savePlanningToStorage() {
+    pushDataToCloud();
+}
+
+function saveSettingsToStorage() {
+    pushDataToCloud();
+}
