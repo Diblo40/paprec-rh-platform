@@ -2549,106 +2549,86 @@ Service RH & QSE ${rhSettings.agenceNom}`
 
 
 
+
+
 // ========================================================
-// DEEP UNION MULTI-DEVICE CLOUD SYNC ENGINE (100% GUARANTEED 17 EMPLOYEES)
+// ARCHITECTURE PROPRE ATOMIQUE SUPABASE (1 ROW = 1 SALARIÉ)
+// SOURCE DE VÉRITÉ UNIQUE : SUPABASE POSTGRESQL (ZERO LOCAL STORAGE)
 // ========================================================
 const SUPABASE_RH_URL = "https://wilukbpvjfdyxahasmmt.supabase.co";
 const SUPABASE_RH_KEY = "sb_publishable_P9MiaaGJqJ2f6zAFvHwXZA_jYHlF830";
 
-let isPureCloudSyncing = false;
-let lastCloudPayloadHash = "";
+let isReloadingEmployees = false;
 
-function getEmployeeKey(emp) {
-    if (!emp) return "";
-    if (emp.id && emp.id !== "rh_platform_master_state") return emp.id;
-    const normNom = (emp.nom || emp.name || "").toLowerCase().trim();
-    const normPrenom = (emp.prenom || "").toLowerCase().trim();
-    return `${normNom}_${normPrenom}`;
+// Convert Supabase DB Row to Clean Employee Object
+function parseDbRowToEmployee(row) {
+    if (!row) return null;
+    let meta = {};
+    if (row.role && row.role.startsWith("{")) {
+        try { meta = JSON.parse(row.role); } catch(e) {}
+    }
+    return {
+        id: row.id,
+        nom: meta.nom || row.name || "Collaborateur",
+        prenom: meta.prenom || "",
+        name: `${meta.prenom || ''} ${meta.nom || row.name || ''}`.trim(),
+        poste: meta.poste || "Salarié",
+        metier: meta.metier || "Exploitation / DALE",
+        categorie: meta.categorie || "Ouvrier",
+        contrat: meta.contrat || "CDI",
+        dateEntree: row.entryDate ? row.entryDate.substring(0,10) : (meta.dateEntree || "2024-01-01"),
+        telephone: meta.telephone || "",
+        email: meta.email || "",
+        adresse: meta.adresse || "",
+        tailleEpi: meta.tailleEpi || { veste: "L", pantalon: "42", chaussures: "43" },
+        visiteMedicale: meta.visiteMedicale || "2025-10-10",
+        statut: meta.statut || "Actif",
+        soldeCP: meta.soldeCP !== undefined ? meta.soldeCP : 25,
+        soldeRTT: meta.soldeRTT !== undefined ? meta.soldeRTT : 10,
+        documents: meta.documents || [],
+        formations: meta.formations || [],
+        conges: meta.conges || []
+    };
 }
 
-function mergeEmployeeLists(localList, cloudList) {
-    const map = new Map();
-
-    // 1. Add cloud employees to map
-    if (Array.isArray(cloudList)) {
-        cloudList.forEach(emp => {
-            const k = getEmployeeKey(emp);
-            if (k && k !== "rh_platform_master_state") {
-                map.set(k, emp);
-            }
-        });
-    }
-
-    // 2. Add local employees (Union merge so no employee on any PC is ever lost)
-    if (Array.isArray(localList)) {
-        localList.forEach(emp => {
-            const k = getEmployeeKey(emp);
-            if (k && k !== "rh_platform_master_state") {
-                if (!map.has(k)) {
-                    map.set(k, emp);
-                } else {
-                    // Keep employee with more formations or updated info
-                    const existing = map.get(k);
-                    const empFormCount = (emp.formations || []).filter(f => f.dateRecyclage || f.dateObtention).length;
-                    const existFormCount = (existing.formations || []).filter(f => f.dateRecyclage || f.dateObtention).length;
-                    if (empFormCount > existFormCount) {
-                        map.set(k, emp);
-                    }
-                }
-            }
-        });
-    }
-
-    return Array.from(map.values());
-}
-
-async function pushDataToCloud() {
-    if (isPureCloudSyncing) return;
-    isPureCloudSyncing = true;
-
-    const payload = {
-        timestamp: Date.now(),
-        employees: employees.filter(e => e.id !== "rh_platform_master_state"),
-        planning: planningData,
-        settings: rhSettings
+// Convert Employee Object to Supabase DB Row (Meta in role column)
+function formatEmployeeToDbRow(emp) {
+    const meta = {
+        nom: emp.nom || emp.name || "",
+        prenom: emp.prenom || "",
+        poste: emp.poste || emp.role || "Salarié",
+        metier: emp.metier || "Exploitation / DALE",
+        categorie: emp.categorie || "Ouvrier",
+        contrat: emp.contrat || "CDI",
+        dateEntree: emp.dateEntree || "2024-01-01",
+        telephone: emp.telephone || "",
+        email: emp.email || "",
+        adresse: emp.adresse || "",
+        tailleEpi: emp.tailleEpi || { veste: "L", pantalon: "42", chaussures: "43" },
+        visiteMedicale: emp.visiteMedicale || "2025-10-10",
+        statut: emp.statut || "Actif",
+        soldeCP: emp.soldeCP !== undefined ? emp.soldeCP : 25,
+        soldeRTT: emp.soldeRTT !== undefined ? emp.soldeRTT : 10,
+        documents: emp.documents || [],
+        formations: emp.formations || [],
+        conges: emp.conges || []
     };
 
-    try {
-        const payloadStr = JSON.stringify(payload);
-        lastCloudPayloadHash = payloadStr;
-
-        const resp = await fetch(`${SUPABASE_RH_URL}/rest/v1/employees`, {
-            method: 'POST',
-            headers: {
-                'apikey': SUPABASE_RH_KEY,
-                'Authorization': `Bearer ${SUPABASE_RH_KEY}`,
-                'Content-Type': 'application/json',
-                'Prefer': 'resolution=merge-duplicates'
-            },
-            body: JSON.stringify({
-                id: "rh_platform_master_state",
-                name: payloadStr,
-                role: "RH_MASTER_PAYLOAD",
-                entryDate: new Date().toISOString()
-            })
-        });
-
-        if (resp.ok) {
-            updateRhSyncBadge(true, `Synchronisé Cloud (${employees.length} salariés)`);
-        }
-    } catch(e) {
-        console.warn("pushDataToCloud error:", e);
-        updateRhSyncBadge(false, "Reconnexion Cloud...");
-    } finally {
-        isPureCloudSyncing = false;
-    }
+    return {
+        id: emp.id,
+        name: `${emp.nom || emp.name || ''} ${emp.prenom || ''}`.trim(),
+        role: JSON.stringify(meta),
+        entryDate: emp.dateEntree || new Date().toISOString()
+    };
 }
 
-async function fetchPureCloudState(isInitial = false) {
-    if (isPureCloudSyncing) return false;
+// 1. READ ALL EMPLOYEES (SELECT * FROM employees)
+async function reloadEmployees() {
+    if (isReloadingEmployees) return;
+    isReloadingEmployees = true;
 
     try {
-        const resp = await fetch(`${SUPABASE_RH_URL}/rest/v1/employees?id=eq.rh_platform_master_state&select=*`, {
+        const resp = await fetch(`${SUPABASE_RH_URL}/rest/v1/employees?select=*`, {
             headers: {
                 'apikey': SUPABASE_RH_KEY,
                 'Authorization': `Bearer ${SUPABASE_RH_KEY}`
@@ -2657,79 +2637,84 @@ async function fetchPureCloudState(isInitial = false) {
 
         if (resp.ok) {
             const rows = await resp.json();
-            if (rows && rows.length > 0 && rows[0].name) {
-                const payloadStr = rows[0].name;
+            if (rows && Array.isArray(rows)) {
+                // Filter out system payload rows
+                const validRows = rows.filter(r => r && r.id && !r.id.startsWith("rh_"));
+                const fetchedEmployees = validRows.map(parseDbRowToEmployee).filter(e => e !== null);
 
-                try {
-                    const payload = JSON.parse(payloadStr);
-                    if (payload && payload.employees && Array.isArray(payload.employees)) {
-                        
-                        // Merge local employees with cloud employees (Union)
-                        const mergedEmps = mergeEmployeeLists(employees, payload.employees);
-                        const empCountChanged = (mergedEmps.length !== employees.length);
-                        const empStrChanged = (JSON.stringify(employees) !== JSON.stringify(mergedEmps));
+                if (fetchedEmployees.length > 0) {
+                    employees = fetchedEmployees;
+                    processEmployeesFormationsStatus();
+                    updateStats();
+                    renderPersonnel();
+                    renderConges();
+                    renderPlanning();
+                    renderFormationsMatrix();
+                    checkAutomaticExpirationAlerts();
 
-                        if (isInitial || empCountChanged || empStrChanged) {
-                            employees = mergedEmps;
-                            localStorage.setItem(STORAGE_EMP_KEY, JSON.stringify(employees));
-
-                            if (payload.planning) {
-                                planningData = payload.planning;
-                                localStorage.setItem(STORAGE_PLANNING_KEY, JSON.stringify(planningData));
-                            }
-                            if (payload.settings) {
-                                rhSettings = payload.settings;
-                                localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify(rhSettings));
-                                updateSettingsDisplay();
-                            }
-
-                            processEmployeesFormationsStatus();
-                            updateStats();
-                            renderPersonnel();
-                            renderConges();
-                            renderPlanning();
-                            renderFormationsMatrix();
-                            checkAutomaticExpirationAlerts();
-
-                            // If merge created a larger list than Cloud had, push merged result back to Cloud!
-                            if (mergedEmps.length > payload.employees.length) {
-                                isPureCloudSyncing = false;
-                                pushDataToCloud();
-                            }
-                        }
-
-                        updateRhSyncBadge(true, `Synchronisé Cloud (${employees.length} salariés)`);
-                        return true;
-                    }
-                } catch(parseErr) {
-                    console.warn("Parse error:", parseErr);
+                    updateRhSyncBadge(true, `En Direct de Supabase (${employees.length} salariés)`);
                 }
             }
         }
     } catch(e) {
-        console.warn("fetchPureCloudState error:", e);
-        updateRhSyncBadge(false, "Reconnexion Cloud...");
+        console.warn("reloadEmployees error:", e);
+        updateRhSyncBadge(false, "Reconnexion Supabase...");
+    } finally {
+        isReloadingEmployees = false;
     }
-    return false;
+}
+
+// 2. ATOMIC CREATE / UPDATE (POST UPSERT SINGLE ROW)
+async function saveEmployeeAtomically(emp) {
+    if (!emp || !emp.id) return;
+    const dbRow = formatEmployeeToDbRow(emp);
+
+    try {
+        await fetch(`${SUPABASE_RH_URL}/rest/v1/employees`, {
+            method: 'POST',
+            headers: {
+                'apikey': SUPABASE_RH_KEY,
+                'Authorization': `Bearer ${SUPABASE_RH_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'resolution=merge-duplicates'
+            },
+            body: JSON.stringify(dbRow)
+        });
+        reloadEmployees();
+    } catch(e) {
+        console.warn("saveEmployeeAtomically error:", e);
+    }
+}
+
+// 3. ATOMIC DELETE (DELETE SINGLE ROW)
+async function deleteEmployeeAtomically(empId) {
+    if (!empId) return;
+
+    try {
+        await fetch(`${SUPABASE_RH_URL}/rest/v1/employees?id=eq.${empId}`, {
+            method: 'DELETE',
+            headers: {
+                'apikey': SUPABASE_RH_KEY,
+                'Authorization': `Bearer ${SUPABASE_RH_KEY}`
+            }
+        });
+        reloadEmployees();
+    } catch(e) {
+        console.warn("deleteEmployeeAtomically error:", e);
+    }
 }
 
 function initPureCloudEngine() {
-    // 1. Read existing local employees if any
-    const savedEmp = localStorage.getItem(STORAGE_EMP_KEY);
-    if (savedEmp) {
-        try { employees = JSON.parse(savedEmp); } catch(e) {}
-    }
+    // 1. Initial Fetch from Supabase
+    reloadEmployees();
 
-    // 2. Fetch and Merge with Cloud Master State
-    fetchPureCloudState(true);
+    // 2. Realtime Heartbeat Polling every 2s (Safeguard)
+    setInterval(reloadEmployees, 2000);
 
-    // 3. Auto-poll Cloud every 2 seconds across all devices
-    setInterval(() => fetchPureCloudState(false), 2000);
-
-    // 4. Auto-pull on window focus / visibility
-    window.addEventListener('focus', () => fetchPureCloudState(false));
+    // 3. Auto-fetch on tab focus / visibility
+    window.addEventListener('focus', reloadEmployees);
     document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) fetchPureCloudState(false);
+        if (!document.hidden) reloadEmployees();
     });
 }
 
@@ -2737,22 +2722,22 @@ function updateRhSyncBadge(isOnline, message) {
     const badge = document.getElementById('cloud-sync-status-badge');
     if (badge) {
         badge.innerHTML = isOnline 
-            ? `<span style="color: #16a34a;"><i class="fa-solid fa-cloud-check"></i> ${message}</span>`
+            ? `<span style="color: #16a34a;"><i class="fa-solid fa-database"></i> ${message}</span>`
             : `<span style="color: #ca8a04;"><i class="fa-solid fa-arrows-rotate fa-spin"></i> ${message}</span>`;
     }
 }
 
+// Override handlers to save per row
 function saveEmployeesToStorage() {
-    localStorage.setItem(STORAGE_EMP_KEY, JSON.stringify(employees));
-    pushDataToCloud();
+    if (employees && employees.length > 0) {
+        employees.forEach(emp => saveEmployeeAtomically(emp));
+    }
 }
 
 function savePlanningToStorage() {
-    localStorage.setItem(STORAGE_PLANNING_KEY, JSON.stringify(planningData));
-    pushDataToCloud();
+    // No-op for employees
 }
 
 function saveSettingsToStorage() {
-    localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify(rhSettings));
-    pushDataToCloud();
+    // No-op
 }
