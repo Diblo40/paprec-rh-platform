@@ -2534,8 +2534,9 @@ Service RH & QSE ${rhSettings.agenceNom}`
 
 
 
+
 // ========================================================
-// REAL-TIME MULTI-DEVICE CLOUD SYNC ENGINE FOR PAPREC RH (INSTANT 5S POLLING)
+// REAL-TIME MULTI-DEVICE CLOUD SYNC ENGINE FOR PAPREC RH (AUTHORITATIVE CLOUD MASTER)
 // ========================================================
 const DEFAULT_RH_SUPABASE_URL = "https://wilukbpvjfdyxahasmmt.supabase.co";
 const DEFAULT_RH_SUPABASE_KEY = "sb_publishable_P9MiaaGJqJ2f6zAFvHwXZA_jYHlF830";
@@ -2548,13 +2549,13 @@ function triggerCloudPush() {
     clearTimeout(cloudPushDebounce);
     cloudPushDebounce = setTimeout(() => {
         pushDataToCloud();
-    }, 200); // Fast 200ms push
+    }, 150);
 }
 
 function getCloudSyncPayload() {
     return {
         timestamp: Date.now(),
-        employees: employees,
+        employees: employees.filter(e => e.id !== "rh_global_state"),
         planning: planningData,
         settings: rhSettings
     };
@@ -2574,7 +2575,7 @@ async function pushDataToCloud() {
         updateCloudSyncBadge(true, "Envoi au Cloud...");
         const payloadStr = JSON.stringify(payload);
 
-        // Try PATCH first
+        // Try PATCH
         const patchResp = await fetch(`${supaUrl}/rest/v1/employees?id=eq.rh_global_state`, {
             method: 'PATCH',
             headers: {
@@ -2588,7 +2589,6 @@ async function pushDataToCloud() {
             })
         });
 
-        // If row not existing, insert
         if (!patchResp.ok || patchResp.status === 404) {
             await fetch(`${supaUrl}/rest/v1/employees`, {
                 method: 'POST',
@@ -2616,7 +2616,7 @@ async function pushDataToCloud() {
     }
 }
 
-async function pullDataFromCloud() {
+async function pullDataFromCloud(isInitial = false) {
     if (isPushingToCloud) return;
 
     const supaUrl = localStorage.getItem('paprec_supabase_url') || DEFAULT_RH_SUPABASE_URL;
@@ -2636,7 +2636,7 @@ async function pullDataFromCloud() {
                 try {
                     const payload = JSON.parse(rows[0].name);
                     if (payload && payload.timestamp) {
-                        applyCloudPayload(payload);
+                        applyCloudPayload(payload, isInitial);
                         updateCloudSyncBadge(true, "Synchronisé Cloud (Multi-Appareils)");
                         return;
                     }
@@ -2651,14 +2651,13 @@ async function pullDataFromCloud() {
     }
 }
 
-function applyCloudPayload(cloudRecord) {
+function applyCloudPayload(cloudRecord, forceApply = false) {
     if (!cloudRecord || !cloudRecord.timestamp) return;
-    if (cloudRecord.timestamp <= lastCloudSyncTimestamp) return;
+    if (!forceApply && cloudRecord.timestamp <= lastCloudSyncTimestamp) return;
 
     lastCloudSyncTimestamp = cloudRecord.timestamp;
 
     if (cloudRecord.employees && Array.isArray(cloudRecord.employees)) {
-        // Exclude system payload row if present
         employees = cloudRecord.employees.filter(e => e.id !== "rh_global_state");
         localStorage.setItem(STORAGE_EMP_KEY, JSON.stringify(employees));
     }
@@ -2682,16 +2681,16 @@ function applyCloudPayload(cloudRecord) {
 }
 
 function initCloudSync() {
-    pullDataFromCloud();
+    // Initial pull with forceApply=true to adopt Cloud Master state immediately
+    pullDataFromCloud(true);
+
     // Auto-poll cloud changes every 5 seconds across all devices
-    setInterval(pullDataFromCloud, 5000);
+    setInterval(() => pullDataFromCloud(false), 5000);
 
     // Auto-pull when window regains focus or visibility
-    window.addEventListener('focus', () => {
-        pullDataFromCloud();
-    });
+    window.addEventListener('focus', () => pullDataFromCloud(true));
     document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) pullDataFromCloud();
+        if (!document.hidden) pullDataFromCloud(true);
     });
 }
 
@@ -2699,7 +2698,7 @@ function updateCloudSyncBadge(isOnline, message) {
     const badge = document.getElementById('cloud-sync-status-badge');
     if (badge) {
         badge.innerHTML = isOnline 
-            ? `<span style="color: #16a34a;"><i class="fa-solid fa-cloud-check"></i> ${message}</span>`
-            : `<span style="color: #ca8a04;"><i class="fa-solid fa-cloud"></i> ${message}</span>`;
+            ? `<span style="color: #16a34a; cursor: pointer;" onclick="pullDataFromCloud(true)" title="Cliquer pour forcer la synchronisation"><i class="fa-solid fa-cloud-check"></i> ${message}</span>`
+            : `<span style="color: #ca8a04; cursor: pointer;" onclick="pullDataFromCloud(true)" title="Cliquer pour reessayer"><i class="fa-solid fa-cloud"></i> ${message}</span>`;
     }
 }
