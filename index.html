@@ -45,44 +45,13 @@
         </nav>
 
         
-        <div class="nav-actions" style="display: flex; align-items: center; gap: 8px;">
+        
+        <div class="nav-actions">
             <div id="cloud-sync-status-badge" style="font-size: 0.78rem; font-weight: 600; padding: 4px 10px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 20px; display: inline-flex; align-items: center; gap: 6px;">
-                <span style="color: #16a34a;"><i class="fa-solid fa-cloud-check"></i> Cloud Synchro Actif</span>
+                <span style="color: #16a34a;"><i class="fa-solid fa-cloud-check"></i> Synchronisé Cloud (Multi-Appareils)</span>
             </div>
-            <button class="btn btn-secondary btn-sm" onclick="forcePushToCloud()" style="background:#0284c7; color:white; border:none; padding:5px 10px; border-radius:6px; font-size:0.8rem; font-weight:600; cursor:pointer;" title="Envoyer mes modifications vers tous les autres appareils">
-                <i class="fa-solid fa-cloud-arrow-up"></i> Envoyer au Cloud
-            </button>
-            <button class="btn btn-secondary btn-sm" onclick="forcePullFromCloud()" style="background:#059669; color:white; border:none; padding:5px 10px; border-radius:6px; font-size:0.8rem; font-weight:600; cursor:pointer;" title="Recuperer les modifications des autres appareils">
-                <i class="fa-solid fa-cloud-arrow-down"></i> Synchroniser / Recevoir
-            </button>
         </div>
 
-            <button class="btn btn-outline btn-sm" onclick="openSettingsRHModal()" title="Paramètres Signataire RH & Agence">
-                <i class="fa-solid fa-gear"></i> Config. RH (<span id="nav-signataire-name">Emilie JAYAT</span>)
-            </button>
-            <button class="btn btn-secondary btn-sm" onclick="exportFullDatabaseJSON()" title="Sauvegarder la base RH en fichier JSON">
-                <i class="fa-solid fa-cloud-arrow-down"></i> Sauvegarder (JSON)
-            </button>
-            <button class="btn btn-outline btn-sm" onclick="triggerImportJSON()" title="Restaurer une sauvegarde JSON">
-                <i class="fa-solid fa-cloud-arrow-up"></i> Restaurer (JSON)
-            </button>
-            <input type="file" id="import-json-file-input" style="display:none;" onchange="importFullDatabaseJSON(event)" accept=".json">
-            <button class="btn btn-outline btn-sm" id="btn-export-all" title="Exporter les données RH au format CSV">
-                <i class="fa-solid fa-file-excel"></i> Exporter (CSV)
-            </button>
-        </div>
-    </header>
-
-    <!-- Storage Alert Bar -->
-    <div id="storage-warning-bar" class="container" style="display: none; padding-bottom: 0;">
-        <div class="storage-alert-bar">
-            <div>
-                <i class="fa-solid fa-triangle-exclamation" style="margin-right: 8px;"></i>
-                <strong>Attention Stockage Local :</strong> L'espace mémoire du navigateur est presque plein. Veuillez supprimer quelques anciens fichiers joints dans les dossiers salariés pour libérer de la mémoire.
-            </div>
-            <button class="btn btn-sm btn-outline" onclick="this.parentElement.parentElement.style.display='none'">Fermer</button>
-        </div>
-    </div>
 
     <!-- Automatic Email Expiration Alert Banner (J-30 & Jour J) -->
     <div id="auto-email-alert-banner" class="container" style="display: none; padding-bottom: 0;">

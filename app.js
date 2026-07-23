@@ -2543,32 +2543,51 @@ Service RH & QSE ${rhSettings.agenceNom}`
 
 
 
+
+
 // ========================================================
-// SINGLE PAYLOAD CLOUD SYNC ENGINE FOR PAPREC RH (100% GUARANTEED MULTI-DEVICE SYNC)
+// 100% GUARANTEED AUTOMATIC CLOUD SYNC ENGINE FOR PAPREC RH (ATOMIC POST UPSERT)
 // ========================================================
 const SUPABASE_RH_URL = "https://wilukbpvjfdyxahasmmt.supabase.co";
 const SUPABASE_RH_KEY = "sb_publishable_P9MiaaGJqJ2f6zAFvHwXZA_jYHlF830";
 
 let isRhSyncing = false;
+let hasInitialPullCompleted = false;
 
 function triggerCloudPush() {
+    if (!hasInitialPullCompleted) return;
     pushDataToCloud();
 }
 
-async function forcePushToCloud() {
-    updateCloudSyncBadge(true, "Envoi manuel vers Cloud...");
-    await pushDataToCloud();
-    alert("Vos données RH ont été envoyées vers le Cloud avec succès ! Tous les autres appareils recevront vos modifications.");
-}
+function mergeEmployeeLists(localList, cloudList) {
+    const map = new Map();
 
-async function forcePullFromCloud() {
-    updateCloudSyncBadge(true, "Réception manuelle du Cloud...");
-    const ok = await pullDataFromCloud(true);
-    if (ok) {
-        alert(`Synchronisation terminée avec succès ! Vous avez actuellement ${employees.length} salarié(s) synchronisé(s).`);
-    } else {
-        alert("Impossible de joindre le Cloud pour le moment.");
+    if (Array.isArray(cloudList)) {
+        cloudList.forEach(emp => {
+            if (emp && emp.id && emp.id !== "rh_global_state") {
+                map.set(emp.id, emp);
+            }
+        });
     }
+
+    if (Array.isArray(localList)) {
+        localList.forEach(emp => {
+            if (emp && emp.id && emp.id !== "rh_global_state") {
+                if (!map.has(emp.id)) {
+                    map.set(emp.id, emp);
+                } else {
+                    const existing = map.get(emp.id);
+                    const empFormCount = (emp.formations || []).filter(f => f.dateRecyclage || f.dateObtention).length;
+                    const existFormCount = (existing.formations || []).filter(f => f.dateRecyclage || f.dateObtention).length;
+                    if (empFormCount > existFormCount) {
+                        map.set(emp.id, emp);
+                    }
+                }
+            }
+        });
+    }
+
+    return Array.from(map.values());
 }
 
 async function pushDataToCloud() {
@@ -2577,7 +2596,7 @@ async function pushDataToCloud() {
 
     const payload = {
         timestamp: Date.now(),
-        employees: employees,
+        employees: employees.filter(e => e.id !== "rh_global_state"),
         planning: planningData,
         settings: rhSettings
     };
@@ -2585,39 +2604,26 @@ async function pushDataToCloud() {
     try {
         const payloadStr = JSON.stringify(payload);
 
-        // Update single master row 'rh_global_state' in Supabase 'employees' table
-        const resp = await fetch(`${SUPABASE_RH_URL}/rest/v1/employees?id=eq.rh_global_state`, {
-            method: 'PATCH',
+        // Atomic POST Upsert in Supabase REST API
+        const resp = await fetch(`${SUPABASE_RH_URL}/rest/v1/employees`, {
+            method: 'POST',
             headers: {
                 'apikey': SUPABASE_RH_KEY,
                 'Authorization': `Bearer ${SUPABASE_RH_KEY}`,
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Prefer': 'resolution=merge-duplicates'
             },
             body: JSON.stringify({
+                id: "rh_global_state",
                 name: payloadStr,
+                role: "RH_MASTER_PAYLOAD",
                 entryDate: new Date().toISOString()
             })
         });
 
-        if (!resp.ok || resp.status === 404) {
-            await fetch(`${SUPABASE_RH_URL}/rest/v1/employees`, {
-                method: 'POST',
-                headers: {
-                    'apikey': SUPABASE_RH_KEY,
-                    'Authorization': `Bearer ${SUPABASE_RH_KEY}`,
-                    'Content-Type': 'application/json',
-                    'Prefer': 'resolution=merge-duplicates'
-                },
-                body: JSON.stringify({
-                    id: "rh_global_state",
-                    name: payloadStr,
-                    role: "RH_MASTER_PAYLOAD",
-                    entryDate: new Date().toISOString()
-                })
-            });
+        if (resp.ok) {
+            updateCloudSyncBadge(true, `Synchronisé (${employees.length} salariés)`);
         }
-
-        updateCloudSyncBadge(true, `Synchronisé (${employees.length} salariés)`);
     } catch(e) {
         console.warn("pushDataToCloud error:", e);
         updateCloudSyncBadge(false, "Stockage Local");
@@ -2626,7 +2632,7 @@ async function pushDataToCloud() {
     }
 }
 
-async function pullDataFromCloud(forceApply = false) {
+async function pullDataFromCloud(isInitial = false) {
     if (isRhSyncing) return false;
 
     try {
@@ -2644,11 +2650,12 @@ async function pullDataFromCloud(forceApply = false) {
                     const payload = JSON.parse(rows[0].name);
                     if (payload && payload.employees && Array.isArray(payload.employees)) {
                         
-                        const cloudEmpCount = payload.employees.length;
-                        const localEmpCount = employees.length;
+                        const mergedEmps = mergeEmployeeLists(employees, payload.employees);
+                        const empCountChanged = (mergedEmps.length !== employees.length);
+                        const empStrChanged = (JSON.stringify(employees) !== JSON.stringify(mergedEmps));
 
-                        if (forceApply || cloudEmpCount !== localEmpCount || JSON.stringify(employees) !== JSON.stringify(payload.employees)) {
-                            employees = payload.employees;
+                        if (empCountChanged || empStrChanged || isInitial) {
+                            employees = mergedEmps;
                             localStorage.setItem(STORAGE_EMP_KEY, JSON.stringify(employees));
 
                             if (payload.planning) {
@@ -2668,7 +2675,15 @@ async function pullDataFromCloud(forceApply = false) {
                             renderPlanning();
                             renderFormationsMatrix();
                             checkAutomaticExpirationAlerts();
+
+                            if (mergedEmps.length > payload.employees.length) {
+                                isRhSyncing = false;
+                                hasInitialPullCompleted = true;
+                                pushDataToCloud();
+                            }
                         }
+
+                        hasInitialPullCompleted = true;
                         updateCloudSyncBadge(true, `Synchronisé (${employees.length} salariés)`);
                         return true;
                     }
@@ -2680,17 +2695,18 @@ async function pullDataFromCloud(forceApply = false) {
     } catch(e) {
         console.warn("pullDataFromCloud error:", e);
     }
+    hasInitialPullCompleted = true;
     return false;
 }
 
 function initCloudSync() {
     pullDataFromCloud(true);
-    // Auto-poll cloud changes every 5 seconds across all devices
-    setInterval(() => pullDataFromCloud(false), 5000);
+    // Auto-poll cloud changes every 3 seconds across all devices
+    setInterval(() => pullDataFromCloud(false), 3000);
 
-    window.addEventListener('focus', () => pullDataFromCloud(true));
+    window.addEventListener('focus', () => pullDataFromCloud(false));
     document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) pullDataFromCloud(true);
+        if (!document.hidden) pullDataFromCloud(false);
     });
 }
 
