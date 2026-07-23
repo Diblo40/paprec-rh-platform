@@ -2648,7 +2648,7 @@ async function reloadEmployees() {
             const rows = await resp.json();
             if (rows && Array.isArray(rows)) {
                 // Filter out system payload rows
-                const validRows = rows.filter(r => r && r.id && !r.id.startsWith("rh_"));
+                const validRows = rows.filter(r => r && r.id && !r.id.startsWith("rh_") && r.id !== "emp_pure_cloud_999" && r.id !== "emp_1784789185392" && !r.name.includes("PURE CLOUD"));
                 const fetchedEmployees = validRows.map(parseDbRowToEmployee).filter(e => e !== null);
 
                 if (fetchedEmployees.length > 0) {
