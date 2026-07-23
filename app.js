@@ -648,7 +648,7 @@ function openEditEmpModal(empId) {
     document.getElementById('modal-employee')?.classList.add('active');
 }
 
-function saveEmployeeForm(e) {
+async function saveEmployeeForm(e) {
     e.preventDefault();
 
     const id = document.getElementById('emp-id')?.value;
@@ -671,25 +671,27 @@ function saveEmployeeForm(e) {
 
     if (!nom || !prenom) return;
 
+    let targetEmp = null;
+
     if (id) {
-        const emp = employees.find(e => e.id === id);
-        if (emp) {
-            emp.nom = nom;
-            emp.prenom = prenom;
-            emp.metier = metier;
-            emp.role = role;
-            emp.categorie = categorie;
-            emp.contrat = contrat;
-            emp.dateEntree = dateEntree;
-            emp.visiteMedicale = visiteMedicale;
-            emp.telephone = telephone;
-            emp.email = email;
-            emp.cpAcquis = cpAcquis;
-            emp.rttAcquis = rttAcquis;
-            emp.tailleEpi = { veste, pantalon, chaussures };
+        targetEmp = employees.find(e => e.id === id);
+        if (targetEmp) {
+            targetEmp.nom = nom;
+            targetEmp.prenom = prenom;
+            targetEmp.metier = metier;
+            targetEmp.role = role;
+            targetEmp.categorie = categorie;
+            targetEmp.contrat = contrat;
+            targetEmp.dateEntree = dateEntree || '2024-01-01';
+            targetEmp.visiteMedicale = visiteMedicale || '';
+            targetEmp.telephone = telephone || '';
+            targetEmp.email = email || '';
+            targetEmp.cpAcquis = cpAcquis;
+            targetEmp.rttAcquis = rttAcquis;
+            targetEmp.tailleEpi = { veste, pantalon, chaussures };
         }
     } else {
-        const newEmp = {
+        targetEmp = {
             id: 'emp_' + Date.now(),
             nom: nom,
             prenom: prenom,
@@ -697,10 +699,10 @@ function saveEmployeeForm(e) {
             role: role,
             categorie: categorie,
             contrat: contrat,
-            dateEntree: dateEntree,
-            visiteMedicale: visiteMedicale,
-            telephone: telephone,
-            email: email,
+            dateEntree: dateEntree || new Date().toISOString().split('T')[0],
+            visiteMedicale: visiteMedicale || '',
+            telephone: telephone || '',
+            email: email || '',
             cpAcquis: cpAcquis,
             rttAcquis: rttAcquis,
             tailleEpi: { veste, pantalon, chaussures },
@@ -711,11 +713,14 @@ function saveEmployeeForm(e) {
             formations: [],
             conges: []
         };
-        employees.push(newEmp);
+        employees.push(targetEmp);
+    }
+
+    if (targetEmp) {
+        await saveEmployeeAtomically(targetEmp);
     }
 
     processEmployeesFormationsStatus();
-    saveEmployeesToStorage();
     closeModals();
     updateStats();
     renderPersonnel();
@@ -2776,19 +2781,18 @@ async function saveEmployeeAtomically(emp) {
     renderFormationsMatrix();
 
     try {
-        if (supabaseClient) {
-            await supabaseClient.from('employees').upsert(dbRow, { onConflict: 'id' });
-        } else {
-            await fetch(`${SUPABASE_RH_URL}/rest/v1/employees`, {
-                method: 'POST',
-                headers: {
-                    'apikey': SUPABASE_RH_KEY,
-                    'Authorization': `Bearer ${SUPABASE_RH_KEY}`,
-                    'Content-Type': 'application/json',
-                    'Prefer': 'resolution=merge-duplicates'
-                },
-                body: JSON.stringify(dbRow)
-            });
+        const resp = await fetch(`${SUPABASE_RH_URL}/rest/v1/employees`, {
+            method: 'POST',
+            headers: {
+                'apikey': SUPABASE_RH_KEY,
+                'Authorization': `Bearer ${SUPABASE_RH_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'resolution=merge-duplicates'
+            },
+            body: JSON.stringify(dbRow)
+        });
+        if (resp.ok) {
+            console.log("Atomically saved employee to Supabase:", emp.id);
         }
     } catch(e) {
         console.warn("saveEmployeeAtomically error:", e);
@@ -2843,9 +2847,7 @@ function updateRhSyncBadge(isOnline, message) {
 }
 
 function saveEmployeesToStorage() {
-    if (employees && employees.length > 0) {
-        employees.forEach(emp => saveEmployeeAtomically(emp));
-    }
+    // Single-row atomic operations handled individually by saveEmployeeAtomically()
 }
 
 function savePlanningToStorage() {}
