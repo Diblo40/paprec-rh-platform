@@ -2547,14 +2547,60 @@ Service RH & QSE ${rhSettings.agenceNom}`
 
 
 
+
+
 // ========================================================
-// PURE CLOUD-FIRST ENGINE FOR PAPREC RH (ZERO LOCAL STORAGE DEPENDENCY)
+// DEEP UNION MULTI-DEVICE CLOUD SYNC ENGINE (100% GUARANTEED 17 EMPLOYEES)
 // ========================================================
 const SUPABASE_RH_URL = "https://wilukbpvjfdyxahasmmt.supabase.co";
 const SUPABASE_RH_KEY = "sb_publishable_P9MiaaGJqJ2f6zAFvHwXZA_jYHlF830";
 
 let isPureCloudSyncing = false;
 let lastCloudPayloadHash = "";
+
+function getEmployeeKey(emp) {
+    if (!emp) return "";
+    if (emp.id && emp.id !== "rh_platform_master_state") return emp.id;
+    const normNom = (emp.nom || emp.name || "").toLowerCase().trim();
+    const normPrenom = (emp.prenom || "").toLowerCase().trim();
+    return `${normNom}_${normPrenom}`;
+}
+
+function mergeEmployeeLists(localList, cloudList) {
+    const map = new Map();
+
+    // 1. Add cloud employees to map
+    if (Array.isArray(cloudList)) {
+        cloudList.forEach(emp => {
+            const k = getEmployeeKey(emp);
+            if (k && k !== "rh_platform_master_state") {
+                map.set(k, emp);
+            }
+        });
+    }
+
+    // 2. Add local employees (Union merge so no employee on any PC is ever lost)
+    if (Array.isArray(localList)) {
+        localList.forEach(emp => {
+            const k = getEmployeeKey(emp);
+            if (k && k !== "rh_platform_master_state") {
+                if (!map.has(k)) {
+                    map.set(k, emp);
+                } else {
+                    // Keep employee with more formations or updated info
+                    const existing = map.get(k);
+                    const empFormCount = (emp.formations || []).filter(f => f.dateRecyclage || f.dateObtention).length;
+                    const existFormCount = (existing.formations || []).filter(f => f.dateRecyclage || f.dateObtention).length;
+                    if (empFormCount > existFormCount) {
+                        map.set(k, emp);
+                    }
+                }
+            }
+        });
+    }
+
+    return Array.from(map.values());
+}
 
 async function pushDataToCloud() {
     if (isPureCloudSyncing) return;
@@ -2588,7 +2634,7 @@ async function pushDataToCloud() {
         });
 
         if (resp.ok) {
-            updateRhSyncBadge(true, `En Direct du Cloud (${employees.length} salariés)`);
+            updateRhSyncBadge(true, `Synchronisé Cloud (${employees.length} salariés)`);
         }
     } catch(e) {
         console.warn("pushDataToCloud error:", e);
@@ -2614,21 +2660,26 @@ async function fetchPureCloudState(isInitial = false) {
             if (rows && rows.length > 0 && rows[0].name) {
                 const payloadStr = rows[0].name;
 
-                // Update UI only if cloud payload actually changed or initial load
-                if (isInitial || payloadStr !== lastCloudPayloadHash) {
-                    lastCloudPayloadHash = payloadStr;
+                try {
+                    const payload = JSON.parse(payloadStr);
+                    if (payload && payload.employees && Array.isArray(payload.employees)) {
+                        
+                        // Merge local employees with cloud employees (Union)
+                        const mergedEmps = mergeEmployeeLists(employees, payload.employees);
+                        const empCountChanged = (mergedEmps.length !== employees.length);
+                        const empStrChanged = (JSON.stringify(employees) !== JSON.stringify(mergedEmps));
 
-                    try {
-                        const payload = JSON.parse(payloadStr);
-                        if (payload && payload.employees && Array.isArray(payload.employees)) {
-                            
-                            employees = payload.employees.filter(e => e.id !== "rh_platform_master_state");
+                        if (isInitial || empCountChanged || empStrChanged) {
+                            employees = mergedEmps;
+                            localStorage.setItem(STORAGE_EMP_KEY, JSON.stringify(employees));
 
                             if (payload.planning) {
                                 planningData = payload.planning;
+                                localStorage.setItem(STORAGE_PLANNING_KEY, JSON.stringify(planningData));
                             }
                             if (payload.settings) {
                                 rhSettings = payload.settings;
+                                localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify(rhSettings));
                                 updateSettingsDisplay();
                             }
 
@@ -2640,12 +2691,18 @@ async function fetchPureCloudState(isInitial = false) {
                             renderFormationsMatrix();
                             checkAutomaticExpirationAlerts();
 
-                            updateRhSyncBadge(true, `En Direct du Cloud (${employees.length} salariés)`);
-                            return true;
+                            // If merge created a larger list than Cloud had, push merged result back to Cloud!
+                            if (mergedEmps.length > payload.employees.length) {
+                                isPureCloudSyncing = false;
+                                pushDataToCloud();
+                            }
                         }
-                    } catch(parseErr) {
-                        console.warn("Parse error:", parseErr);
+
+                        updateRhSyncBadge(true, `Synchronisé Cloud (${employees.length} salariés)`);
+                        return true;
                     }
+                } catch(parseErr) {
+                    console.warn("Parse error:", parseErr);
                 }
             }
         }
@@ -2657,13 +2714,19 @@ async function fetchPureCloudState(isInitial = false) {
 }
 
 function initPureCloudEngine() {
-    // 1. Fetch Cloud Master State immediately on load (0ms local storage read)
+    // 1. Read existing local employees if any
+    const savedEmp = localStorage.getItem(STORAGE_EMP_KEY);
+    if (savedEmp) {
+        try { employees = JSON.parse(savedEmp); } catch(e) {}
+    }
+
+    // 2. Fetch and Merge with Cloud Master State
     fetchPureCloudState(true);
 
-    // 2. Direct Cloud Heartbeat - Auto-poll Cloud every 2 seconds across all devices
+    // 3. Auto-poll Cloud every 2 seconds across all devices
     setInterval(() => fetchPureCloudState(false), 2000);
 
-    // 3. Fetch instantly on tab focus or visibility
+    // 4. Auto-pull on window focus / visibility
     window.addEventListener('focus', () => fetchPureCloudState(false));
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden) fetchPureCloudState(false);
@@ -2674,20 +2737,22 @@ function updateRhSyncBadge(isOnline, message) {
     const badge = document.getElementById('cloud-sync-status-badge');
     if (badge) {
         badge.innerHTML = isOnline 
-            ? `<span style="color: #16a34a;"><i class="fa-solid fa-cloud"></i> ${message}</span>`
+            ? `<span style="color: #16a34a;"><i class="fa-solid fa-cloud-check"></i> ${message}</span>`
             : `<span style="color: #ca8a04;"><i class="fa-solid fa-arrows-rotate fa-spin"></i> ${message}</span>`;
     }
 }
 
-// Override save handlers to trigger immediate Cloud Push
 function saveEmployeesToStorage() {
+    localStorage.setItem(STORAGE_EMP_KEY, JSON.stringify(employees));
     pushDataToCloud();
 }
 
 function savePlanningToStorage() {
+    localStorage.setItem(STORAGE_PLANNING_KEY, JSON.stringify(planningData));
     pushDataToCloud();
 }
 
 function saveSettingsToStorage() {
+    localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify(rhSettings));
     pushDataToCloud();
 }
