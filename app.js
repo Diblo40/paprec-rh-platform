@@ -505,7 +505,8 @@ function openAddEmpModal() {
     document.getElementById('modal-employee')?.classList.add('active');
 }
 
-function calculateEmployeeLeaveStats(emp, year = '2026') {
+function calculateEmployeeLeaveStats(emp, year = null) {
+    const targetYear = (year && year !== 'all') ? year : new Date().getFullYear().toString();
     const cpAcquis = emp.cpAcquis !== undefined ? parseFloat(emp.cpAcquis) : 25;
     const rttAcquis = emp.rttAcquis !== undefined ? parseFloat(emp.rttAcquis) : 10;
 
@@ -513,10 +514,12 @@ function calculateEmployeeLeaveStats(emp, year = '2026') {
     let rttPris = 0;
 
     (emp.conges || []).forEach(c => {
-        if (c.statut === 'Validé' && c.debut && c.fin && c.debut.startsWith(year)) {
-            const days = calcDaysBetween(c.debut, c.fin);
-            if (c.type === 'CP') cpPris += days;
-            if (c.type === 'RTT') rttPris += days;
+        if ((c.statut === 'Validé' || !c.statut) && c.debut && c.fin) {
+            if (year === 'all' || !targetYear || c.debut.startsWith(targetYear)) {
+                const days = calcDaysBetween(c.debut, c.fin);
+                if (c.type === 'CP') cpPris += days;
+                if (c.type === 'RTT') rttPris += days;
+            }
         }
     });
 
@@ -652,7 +655,7 @@ function renderCongesTable() {
     const tbody = document.getElementById('conges-table-body');
     tbody.innerHTML = '';
 
-    const year = document.getElementById('conges-year-select')?.value;
+    const year = document.getElementById('conges-year-select')?.value || '2026';
     const metierFilter = document.getElementById('filter-metier-conges')?.value;
 
     const filtered = employees.filter(emp => {
@@ -672,7 +675,7 @@ function renderCongesTable() {
 
         const congesList = (emp.conges || []).filter(c => {
             if (!c.debut) return true;
-            return c.debut.startsWith(year);
+            return year === 'all' || !year || c.debut.startsWith(year);
         });
 
         let congesHtml = '';
@@ -876,11 +879,11 @@ function populateEmpSelect() {
 }
 
 async function saveCongeForm(e) {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
 
     const empId = document.getElementById('conge-emp-id')?.value;
     const type = document.getElementById('conge-type')?.value;
-    const statut = document.getElementById('conge-statut')?.value;
+    const statut = document.getElementById('conge-statut')?.value || 'Validé';
     const debut = document.getElementById('conge-debut')?.value;
     const fin = document.getElementById('conge-fin')?.value;
     const motif = document.getElementById('conge-motif')?.value.trim();
@@ -901,16 +904,12 @@ async function saveCongeForm(e) {
 
     emp.conges.push(newConge);
 
-    if (statut === 'Validé') {
-        const days = calcDaysBetween(debut, fin);
-        if (type === 'CP' && emp.soldeCP) emp.soldeCP = Math.max(0, emp.soldeCP - days);
-        if (type === 'RTT' && emp.soldeRTT) emp.soldeRTT = Math.max(0, emp.soldeRTT - days);
-    }
-
     await saveEmployee(emp);
     closeModals();
     renderConges();
     renderPlanning();
+    renderPersonnel();
+    showToast('Congé enregistré avec succès !', 'success');
 }
 
 async function deleteConge(empId, congeId) {
@@ -922,6 +921,8 @@ async function deleteConge(empId, congeId) {
         await saveEmployee(emp);
         renderConges();
         renderPlanning();
+        renderPersonnel();
+        showToast('Congé supprimé avec succès.', 'success');
     }
 }
 
