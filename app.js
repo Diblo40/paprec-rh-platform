@@ -1,21 +1,5 @@
-// Complete Local Storage Purge to ensure ZERO stale device data
-try {
-    localStorage.clear();
-    sessionStorage.clear();
-} catch(e) {}
-
-
-// Purge stale local storage business data to prevent cloud contamination
-try {
-    localStorage.removeItem("paprec_rh_employees_v8");
-    localStorage.removeItem("paprec_rh_employees");
-    localStorage.removeItem("STORAGE_EMP_KEY");
-} catch(e) {}
-
-
-function triggerCloudPush() {
-    pushDataToCloud();
-}
+// Paprec RH Platform — Supabase PostgreSQL = Unique Source de Vérité
+// Version corrigée : aucune donnée métier en localStorage
 
 // Complete Revamped Application Logic for Paprec RH Platform & Formations QSE
 
@@ -59,21 +43,11 @@ function init() {
     initPureCloudEngine();
 }
 
-function saveEmployeesToStorage() {
-    localStorage.setItem(STORAGE_EMP_KEY, JSON.stringify(employees));
-    checkStorageUsage();
-    triggerCloudPush();
-}
-
-function savePlanningToStorage() {
-    localStorage.setItem(STORAGE_PLANNING_KEY, JSON.stringify(planningData));
-    triggerCloudPush();
-}
-
-function saveSettingsToStorage() {
-    localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify(rhSettings));
-    triggerCloudPush();
-}
+// saveEmployeesToStorage, savePlanningToStorage, saveSettingsToStorage
+// SUPPRIMÉES : toute persistance passe désormais par Supabase PostgreSQL
+function saveEmployeesToStorage() {}
+function savePlanningToStorage() {}
+function saveSettingsToStorage() {}
 
 function checkStorageUsage() {
     try {
@@ -467,7 +441,7 @@ function triggerProfileFileUpload() {
     document.getElementById('profile-file-input-hidden')?.click();
 }
 
-function handleProfileFileUpload(event) {
+async function handleProfileFileUpload(event) {
     const file = event.target.files[0];
     if (!file || !currentEditingEmpId) return;
 
@@ -487,7 +461,7 @@ function handleProfileFileUpload(event) {
     };
 
     emp.documents.push(newDoc);
-    saveEmployeesToStorage();
+    await saveEmployee(emp);
     updateStats();
     renderEmployeeFiles(emp);
     renderPersonnel();
@@ -611,99 +585,8 @@ function openEditEmpModal(empId) {
     document.getElementById('modal-employee')?.classList.add('active');
 }
 
-async function saveEmployeeForm(e) {
-    e.preventDefault();
-
-    const id = document.getElementById('emp-id')?.value;
-    const nom = document.getElementById('emp-nom')?.value.trim();
-    const prenom = document.getElementById('emp-prenom')?.value.trim();
-    const metier = document.getElementById('emp-metier')?.value;
-    const role = document.getElementById('emp-role')?.value.trim();
-    const categorie = document.getElementById('emp-categorie')?.value;
-    const contrat = document.getElementById('emp-contrat')?.value;
-    const dateEntree = document.getElementById('emp-date-entree')?.value;
-    const visiteMedicale = document.getElementById('emp-visite-medicale')?.value;
-    const telephone = document.getElementById('emp-telephone')?.value.trim();
-    const email = document.getElementById('emp-email')?.value.trim();
-    const cpAcquis = parseFloat(document.getElementById('emp-cp-acquis')?.value) || 25;
-    const rttAcquis = parseFloat(document.getElementById('emp-rtt-acquis')?.value) || 10;
-
-    const veste = document.getElementById('emp-epi-veste')?.value.trim();
-    const pantalon = document.getElementById('emp-epi-pantalon')?.value.trim();
-    const chaussures = document.getElementById('emp-epi-chaussures')?.value.trim();
-
-    if (!nom || !prenom) return;
-
-    let targetEmp = null;
-
-    if (id) {
-        targetEmp = employees.find(e => e.id === id);
-        if (targetEmp) {
-            targetEmp.nom = nom;
-            targetEmp.prenom = prenom;
-            targetEmp.metier = metier;
-            targetEmp.role = role;
-            targetEmp.categorie = categorie;
-            targetEmp.contrat = contrat;
-            targetEmp.dateEntree = dateEntree || '2024-01-01';
-            targetEmp.visiteMedicale = visiteMedicale || '';
-            targetEmp.telephone = telephone || '';
-            targetEmp.email = email || '';
-            targetEmp.cpAcquis = cpAcquis;
-            targetEmp.rttAcquis = rttAcquis;
-            targetEmp.tailleEpi = { veste, pantalon, chaussures };
-        }
-    } else {
-        targetEmp = {
-            id: 'emp_' + Date.now(),
-            nom: nom,
-            prenom: prenom,
-            metier: metier,
-            role: role,
-            categorie: categorie,
-            contrat: contrat,
-            dateEntree: dateEntree || new Date().toISOString().split('T')[0],
-            visiteMedicale: visiteMedicale || '',
-            telephone: telephone || '',
-            email: email || '',
-            cpAcquis: cpAcquis,
-            rttAcquis: rttAcquis,
-            tailleEpi: { veste, pantalon, chaussures },
-            statut: 'Actif',
-            soldeCP: cpAcquis,
-            soldeRTT: rttAcquis,
-            documents: [],
-            formations: [],
-            conges: []
-        };
-        employees.push(targetEmp);
-    }
-
-    if (targetEmp) {
-        await saveEmployeeAtomically(targetEmp);
-    }
-
-    processEmployeesFormationsStatus();
-    closeModals();
-    updateStats();
-    renderPersonnel();
-    renderConges();
-    renderPlanning();
-    renderFormationsMatrix();
-}
-
-function deleteEmployee(empId) {
-    if (confirm('Voulez-vous vraiment supprimer ce collaborateur du système RH ?')) {
-        employees = employees.filter(e => e.id !== empId);
-        deleteEmployeeAtomically(empId);
-        processEmployeesFormationsStatus();
-        updateStats();
-        renderPersonnel();
-        renderConges();
-        renderPlanning();
-        renderFormationsMatrix();
-    }
-}
+// SUPPRIMÉ : ancienne saveEmployeeForm (optimiste) et ancienne deleteEmployee (locale)
+// Les versions Cloud définitives sont aux lignes 2762+ et 2799+
 
 function renderEmployeeFiles(emp) {
     const listEl = document.getElementById('profile-files-list');
@@ -746,13 +629,13 @@ function downloadDoc(docId) {
     alert("Téléchargement du document RH simulé avec succès !");
 }
 
-function deleteDoc(empId, docId) {
+async function deleteDoc(empId, docId) {
     const emp = employees.find(e => e.id === empId);
     if (!emp || !emp.documents) return;
 
     if (confirm("Voulez-vous supprimer ce document du dossier RH ?")) {
         emp.documents = emp.documents.filter(d => d.id !== docId);
-        saveEmployeesToStorage();
+        await saveEmployee(emp);
         updateStats();
         renderEmployeeFiles(emp);
     }
@@ -992,7 +875,7 @@ function populateEmpSelect() {
     });
 }
 
-function saveCongeForm(e) {
+async function saveCongeForm(e) {
     e.preventDefault();
 
     const empId = document.getElementById('conge-emp-id')?.value;
@@ -1024,19 +907,19 @@ function saveCongeForm(e) {
         if (type === 'RTT' && emp.soldeRTT) emp.soldeRTT = Math.max(0, emp.soldeRTT - days);
     }
 
-    saveEmployeesToStorage();
+    await saveEmployee(emp);
     closeModals();
     renderConges();
     renderPlanning();
 }
 
-function deleteConge(empId, congeId) {
+async function deleteConge(empId, congeId) {
     const emp = employees.find(e => e.id === empId);
     if (!emp || !emp.conges) return;
 
     if (confirm("Voulez-vous annuler ce congé ?")) {
         emp.conges = emp.conges.filter(c => c.id !== congeId);
-        saveEmployeesToStorage();
+        await saveEmployee(emp);
         renderConges();
         renderPlanning();
     }
@@ -2081,7 +1964,7 @@ function openFormationInfoModal(empId, formationId) {
     document.getElementById('modal-formation-info')?.classList.add('active');
 }
 
-function renewFormationToday() {
+async function renewFormationToday() {
     if (!activeInfoFormation) return;
     const { empId, formationId } = activeInfoFormation;
 
@@ -2110,7 +1993,7 @@ function renewFormationToday() {
     }
 
     processEmployeesFormationsStatus();
-    saveEmployeesToStorage();
+    await saveEmployee(emp);
     closeModals();
     updateStats();
     renderFormationsMatrix();
@@ -2198,20 +2081,25 @@ function importFullDatabaseJSON(e) {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = function(evt) {
+    reader.onload = async function(evt) {
         try {
             const data = JSON.parse(evt.target.result);
             if (data.employees && Array.isArray(data.employees)) {
-                employees = data.employees;
-                saveEmployeesToStorage();
+                // Upsert chaque salarié dans Supabase au lieu d'écrire en localStorage
+                let successCount = 0;
+                for (const emp of data.employees) {
+                    const result = await saveEmployee(emp);
+                    if (result) successCount++;
+                }
+                console.log('[IMPORT] ' + successCount + '/' + data.employees.length + ' salariés importés dans Supabase.');
+                // Recharger depuis Supabase pour avoir l'état exact
+                await loadEmployees();
             }
             if (data.planning) {
                 planningData = data.planning;
-                savePlanningToStorage();
             }
             if (data.settings) {
                 rhSettings = data.settings;
-                saveSettingsToStorage();
                 updateSettingsDisplay();
             }
 
@@ -2925,8 +2813,8 @@ window.deleteEmployee = deleteEmployee;
 window.loadEmployees = loadEmployees;
 window.saveEmployeeForm = saveEmployeeForm;
 
-function saveEmployeesToStorage() {}
-function savePlanningToStorage() {}
-function saveSettingsToStorage() {}
+// Aliases de compatibilité
 function saveEmployeeAtomically(emp) { return saveEmployee(emp); }
 function deleteEmployeeAtomically(empId) { return deleteEmployee(empId); }
+
+console.log('APP VERSION: 2026-07-28-v2 — Supabase PostgreSQL = Unique Source de Vérité');
