@@ -2525,6 +2525,8 @@ function parseDbRowToEmployee(row) {
         tailleEpi: meta.tailleEpi || { veste: "L", pantalon: "42", chaussures: "43" },
         visiteMedicale: meta.visiteMedicale || "2025-10-10",
         statut: meta.statut || "Actif",
+        cpAcquis: meta.cpAcquis !== undefined ? meta.cpAcquis : (meta.soldeCP !== undefined ? meta.soldeCP : 25),
+        rttAcquis: meta.rttAcquis !== undefined ? meta.rttAcquis : (meta.soldeRTT !== undefined ? meta.soldeRTT : 10),
         soldeCP: meta.soldeCP !== undefined ? meta.soldeCP : 25,
         soldeRTT: meta.soldeRTT !== undefined ? meta.soldeRTT : 10,
         documents: meta.documents || [],
@@ -2549,6 +2551,8 @@ function formatEmployeeToDbRow(emp) {
         tailleEpi: emp.tailleEpi || { veste: "L", pantalon: "42", chaussures: "43" },
         visiteMedicale: emp.visiteMedicale || "2025-10-10",
         statut: emp.statut || "Actif",
+        cpAcquis: emp.cpAcquis !== undefined ? emp.cpAcquis : (emp.soldeCP !== undefined ? emp.soldeCP : 25),
+        rttAcquis: emp.rttAcquis !== undefined ? emp.rttAcquis : (emp.soldeRTT !== undefined ? emp.soldeRTT : 10),
         soldeCP: emp.soldeCP !== undefined ? emp.soldeCP : 25,
         soldeRTT: emp.soldeRTT !== undefined ? emp.soldeRTT : 10,
         documents: emp.documents || [],
@@ -2620,6 +2624,9 @@ async function saveEmployee(formData) {
         const empId = formData.id || ('emp_' + Date.now());
         const existingEmp = employees.find(e => e.id === empId) || {};
 
+        const cpAcq = formData.cpAcquis !== undefined ? formData.cpAcquis : (existingEmp.cpAcquis !== undefined ? existingEmp.cpAcquis : (existingEmp.soldeCP !== undefined ? existingEmp.soldeCP : 25));
+        const rttAcq = formData.rttAcquis !== undefined ? formData.rttAcquis : (existingEmp.rttAcquis !== undefined ? existingEmp.rttAcquis : (existingEmp.soldeRTT !== undefined ? existingEmp.soldeRTT : 10));
+
         const employee = {
             id: empId,
             nom: formData.nom !== undefined ? formData.nom : (existingEmp.nom || ""),
@@ -2636,8 +2643,10 @@ async function saveEmployee(formData) {
             tailleEpi: formData.tailleEpi || existingEmp.tailleEpi || { veste: "L", pantalon: "42", chaussures: "43" },
             visiteMedicale: formData.visiteMedicale || existingEmp.visiteMedicale || "2025-10-10",
             statut: formData.statut || existingEmp.statut || "Actif",
-            soldeCP: formData.cpAcquis !== undefined ? formData.cpAcquis : (existingEmp.soldeCP !== undefined ? existingEmp.soldeCP : 25),
-            soldeRTT: formData.rttAcquis !== undefined ? formData.rttAcquis : (existingEmp.soldeRTT !== undefined ? existingEmp.soldeRTT : 10),
+            cpAcquis: cpAcq,
+            rttAcquis: rttAcq,
+            soldeCP: cpAcq,
+            soldeRTT: rttAcq,
             documents: formData.documents !== undefined ? formData.documents : (existingEmp.documents || []),
             formations: formData.formations !== undefined ? formData.formations : (existingEmp.formations || []),
             conges: formData.conges !== undefined ? formData.conges : (existingEmp.conges || [])
@@ -2713,8 +2722,10 @@ async function saveEmployeeForm(e) {
     const visiteMedicale = document.getElementById('emp-visite-medicale')?.value;
     const telephone = document.getElementById('emp-telephone')?.value.trim();
     const email = document.getElementById('emp-email')?.value.trim();
-    const cpAcquis = parseFloat(document.getElementById('emp-cp-acquis')?.value) || 25;
-    const rttAcquis = parseFloat(document.getElementById('emp-rtt-acquis')?.value) || 10;
+    const cpRaw = parseFloat(document.getElementById('emp-cp-acquis')?.value);
+    const rttRaw = parseFloat(document.getElementById('emp-rtt-acquis')?.value);
+    const cpAcquis = !isNaN(cpRaw) ? cpRaw : 25;
+    const rttAcquis = !isNaN(rttRaw) ? rttRaw : 10;
 
     const veste = document.getElementById('emp-epi-veste')?.value.trim();
     const pantalon = document.getElementById('emp-epi-pantalon')?.value.trim();
