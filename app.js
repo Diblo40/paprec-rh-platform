@@ -1030,7 +1030,30 @@ function openPlanningCellModal(empId, dayKey, weekKey) {
     document.getElementById('modal-planning-cell')?.classList.add('active');
 }
 
-function savePlanningCell() {
+async function savePlanningToCloud() {
+    try {
+        const dbRow = {
+            id: 'rh_planning',
+            name: 'PLANNING_DATA',
+            role: JSON.stringify(planningData),
+            entryDate: new Date().toISOString()
+        };
+        await fetch(SUPABASE_RH_URL + '/rest/v1/employees', {
+            method: 'POST',
+            headers: {
+                'apikey': SUPABASE_RH_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_RH_KEY,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=representation, resolution=merge-duplicates'
+            },
+            body: JSON.stringify(dbRow)
+        });
+    } catch (e) {
+        console.error('[PLANNING SAVE ERROR]', e);
+    }
+}
+
+async function savePlanningCell() {
     if (!activePlanningCell) return;
     const { empId, dayKey, weekKey } = activePlanningCell;
 
@@ -1047,7 +1070,7 @@ function savePlanningCell() {
         planningData[weekKey].push(newPlan);
     }
 
-    savePlanningToStorage();
+    await savePlanningToCloud();
     closeModals();
     renderPlanning();
 }
@@ -2000,6 +2023,25 @@ async function renewFormationToday() {
     renderPersonnel();
 }
 
+async function deleteFormationFromEmployee() {
+    if (!activeInfoFormation) return;
+    const { empId, formationId } = activeInfoFormation;
+
+    const emp = employees.find(e => e.id === empId);
+    if (!emp || !emp.formations) return;
+
+    if (confirm("Voulez-vous vraiment supprimer cette formation du dossier du salarié ?")) {
+        emp.formations = emp.formations.filter(f => f.id !== formationId);
+        processEmployeesFormationsStatus();
+        await saveEmployee(emp);
+        closeModals();
+        updateStats();
+        renderFormationsMatrix();
+        renderPersonnel();
+        showToast('Formation supprimée avec succès.', 'success');
+    }
+}
+
 function sendFormationEmailRelance() {
     if (!activeInfoFormation) return;
     const { empId, formationId } = activeInfoFormation;
@@ -2470,7 +2512,8 @@ function parseDbRowToEmployee(row) {
         nom: meta.nom || row.name || "Collaborateur",
         prenom: meta.prenom || "",
         name: ((meta.prenom || '') + ' ' + (meta.nom || row.name || '')).trim(),
-        poste: meta.poste || "Salarié",
+        poste: meta.poste || meta.role || "Salarié",
+        role: meta.role || meta.poste || "Salarié",
         metier: meta.metier || "Exploitation / DALE",
         categorie: meta.categorie || "Ouvrier",
         contrat: meta.contrat || "CDI",
@@ -2540,6 +2583,11 @@ async function loadEmployees() {
         if (resp.ok) {
             const rows = await resp.json();
             if (rows && Array.isArray(rows)) {
+                const planRow = rows.find(function(r) { return r && r.id === 'rh_planning'; });
+                if (planRow && planRow.role) {
+                    try { planningData = JSON.parse(planRow.role); } catch(e) {}
+                }
+
                 const validRows = rows.filter(function(r) { return r && r.id && !r.id.startsWith("rh_") && !r.id.includes("pure_cloud"); });
                 employees = validRows.map(parseDbRowToEmployee).filter(function(e) { return e !== null; });
 
@@ -2569,26 +2617,29 @@ async function saveEmployee(formData) {
 
     try {
         const empId = formData.id || ('emp_' + Date.now());
+        const existingEmp = employees.find(e => e.id === empId) || {};
+
         const employee = {
             id: empId,
-            nom: formData.nom,
-            prenom: formData.prenom,
-            poste: formData.poste || formData.role || "Salarié",
-            metier: formData.metier || "Exploitation / DALE",
-            categorie: formData.categorie || "Ouvrier",
-            contrat: formData.contrat || "CDI",
-            dateEntree: formData.dateEntree || "2024-01-01",
-            telephone: formData.telephone || "",
-            email: formData.email || "",
-            adresse: formData.adresse || "",
-            tailleEpi: formData.tailleEpi || { veste: "L", pantalon: "42", chaussures: "43" },
-            visiteMedicale: formData.visiteMedicale || "2025-10-10",
-            statut: formData.statut || "Actif",
-            soldeCP: formData.soldeCP !== undefined ? formData.soldeCP : 25,
-            soldeRTT: formData.soldeRTT !== undefined ? formData.soldeRTT : 10,
-            documents: formData.documents || [],
-            formations: formData.formations || [],
-            conges: formData.conges || []
+            nom: formData.nom !== undefined ? formData.nom : (existingEmp.nom || ""),
+            prenom: formData.prenom !== undefined ? formData.prenom : (existingEmp.prenom || ""),
+            poste: formData.poste || formData.role || existingEmp.poste || existingEmp.role || "Salarié",
+            role: formData.role || formData.poste || existingEmp.role || existingEmp.poste || "Salarié",
+            metier: formData.metier || existingEmp.metier || "Exploitation / DALE",
+            categorie: formData.categorie || existingEmp.categorie || "Ouvrier",
+            contrat: formData.contrat || existingEmp.contrat || "CDI",
+            dateEntree: formData.dateEntree || existingEmp.dateEntree || "2024-01-01",
+            telephone: formData.telephone !== undefined ? formData.telephone : (existingEmp.telephone || ""),
+            email: formData.email !== undefined ? formData.email : (existingEmp.email || ""),
+            adresse: formData.adresse !== undefined ? formData.adresse : (existingEmp.adresse || ""),
+            tailleEpi: formData.tailleEpi || existingEmp.tailleEpi || { veste: "L", pantalon: "42", chaussures: "43" },
+            visiteMedicale: formData.visiteMedicale || existingEmp.visiteMedicale || "2025-10-10",
+            statut: formData.statut || existingEmp.statut || "Actif",
+            soldeCP: formData.cpAcquis !== undefined ? formData.cpAcquis : (existingEmp.soldeCP !== undefined ? existingEmp.soldeCP : 25),
+            soldeRTT: formData.rttAcquis !== undefined ? formData.rttAcquis : (existingEmp.soldeRTT !== undefined ? existingEmp.soldeRTT : 10),
+            documents: formData.documents !== undefined ? formData.documents : (existingEmp.documents || []),
+            formations: formData.formations !== undefined ? formData.formations : (existingEmp.formations || []),
+            conges: formData.conges !== undefined ? formData.conges : (existingEmp.conges || [])
         };
 
         const dbRow = formatEmployeeToDbRow(employee);
@@ -2759,6 +2810,16 @@ function handleEmployeeRealtimeChange(payload) {
     const newRow = payload.new;
     const oldRow = payload.old;
 
+    if (newRow && newRow.id === 'rh_planning') {
+        if (newRow.role) {
+            try {
+                planningData = JSON.parse(newRow.role);
+                renderPlanning();
+            } catch(e) {}
+        }
+        return;
+    }
+
     if (eventType === 'INSERT' && newRow && newRow.id && !newRow.id.startsWith("rh_")) {
         const emp = parseDbRowToEmployee(newRow);
         if (emp && !employees.some(function(e) { return e.id === emp.id; })) {
@@ -2812,9 +2873,10 @@ window.saveEmployee = saveEmployee;
 window.deleteEmployee = deleteEmployee;
 window.loadEmployees = loadEmployees;
 window.saveEmployeeForm = saveEmployeeForm;
+window.deleteFormationFromEmployee = deleteFormationFromEmployee;
 
 // Aliases de compatibilité
 function saveEmployeeAtomically(emp) { return saveEmployee(emp); }
 function deleteEmployeeAtomically(empId) { return deleteEmployee(empId); }
 
-console.log('APP VERSION: 2026-07-28-v2 — Supabase PostgreSQL = Unique Source de Vérité');
+console.log('APP VERSION: 2026-07-28-v3 — Supabase PostgreSQL = Unique Source de Vérité');
