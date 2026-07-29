@@ -1045,7 +1045,8 @@ function buildSingleMonthHtml(monthIdx, yearNum, monthNames) {
         const curDate = new Date(yearNum, monthIdx, day);
         const isWeekend = curDate.getDay() === 0 || curDate.getDay() === 6;
         const isHoli = isFrenchPublicHoliday(curDate);
-        const bgStyle = isHoli ? 'background:#fee2e2;' : (isWeekend ? 'background:#f1f5f9;' : 'background:#ffffff;');
+        // Clean neutral tones for non-working days (zero red clutter, printer-ink friendly)
+        const bgStyle = (isHoli || isWeekend) ? 'background:#f8fafc;' : 'background:#ffffff;';
 
         let eventsHtml = '';
         employees.forEach(emp => {
@@ -1061,9 +1062,12 @@ function buildSingleMonthHtml(monthIdx, yearNum, monthNames) {
             });
         });
 
+        const dayNumStyle = (isHoli || isWeekend) ? 'color:#64748b; font-weight:700;' : 'color:#334155; font-weight:700;';
+        const holiLabel = isHoli ? ' <span style="font-size:0.65rem; color:#64748b; font-weight:600;">(Férié)</span>' : '';
+
         daysHtml += `
             <div class="calendar-day-cell" style="${bgStyle}">
-                <div class="calendar-day-number" style="${isHoli || isWeekend ? 'color:#ef4444; font-weight:800;' : ''}">${day}${isHoli ? ' 🎉' : ''}</div>
+                <div class="calendar-day-number" style="${dayNumStyle}">${day}${holiLabel}</div>
                 ${eventsHtml}
             </div>
         `;
