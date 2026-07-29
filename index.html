@@ -1201,13 +1201,13 @@
                     <div class="form-grid">
                         <div class="form-group full">
                             <label>Collaborateur *</label>
-                            <select id="conge-emp-id" class="form-select" required>
+                            <select id="conge-emp-id" class="form-select" onchange="validateCongeEntry()" required>
                                 <!-- Injected by JS -->
                             </select>
                         </div>
                         <div class="form-group">
                             <label>Type de Congé *</label>
-                            <select id="conge-type" class="form-select" required>
+                            <select id="conge-type" class="form-select" onchange="validateCongeEntry()" required>
                                 <option value="CP">Congés Payés (CP)</option>
                                 <option value="RTT">RTT</option>
                                 <option value="Maladie">Arrêt Maladie</option>
@@ -1224,11 +1224,14 @@
                         </div>
                         <div class="form-group">
                             <label>Date de Début *</label>
-                            <input type="date" id="conge-debut" class="form-input" required>
+                            <input type="date" id="conge-debut" class="form-input" onchange="validateCongeEntry()" required>
                         </div>
                         <div class="form-group">
                             <label>Date de Fin *</label>
-                            <input type="date" id="conge-fin" class="form-input" required>
+                            <input type="date" id="conge-fin" class="form-input" onchange="validateCongeEntry()" required>
+                        </div>
+                        <div class="form-group full" id="conge-validation-alert" style="display: none; padding: 10px 14px; border-radius: 6px; font-size: 0.84rem; font-weight: 600;">
+                            <!-- Real-time error/warning alert injected by JS -->
                         </div>
                         <div class="form-group full">
                             <label>Motif / Remarque</label>
@@ -1287,7 +1290,7 @@
     </div>
 
     <!-- Application JS Logic -->
-    <script src="data.js?v=20260729-v18"></script>
-    <script src="app.js?v=20260729-v18"></script>
+    <script src="data.js?v=20260729-v19"></script>
+    <script src="app.js?v=20260729-v19"></script>
 </body>
 </html>

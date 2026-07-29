@@ -1398,8 +1398,114 @@ function populateEmpSelect() {
     });
 }
 
+function showCongeAlert(message, alertType) {
+    const alertBox = document.getElementById('conge-validation-alert');
+    if (!alertBox) return;
+    alertBox.style.display = 'block';
+    if (alertType === 'danger') {
+        alertBox.style.background = '#fff1f2';
+        alertBox.style.color = '#be123c';
+        alertBox.style.border = '1px solid #fecdd3';
+    } else if (alertType === 'warning') {
+        alertBox.style.background = '#fffbeb';
+        alertBox.style.color = '#b45309';
+        alertBox.style.border = '1px solid #fde68a';
+    } else {
+        alertBox.style.background = '#f0fdf4';
+        alertBox.style.color = '#15803d';
+        alertBox.style.border = '1px solid #bbf7d0';
+    }
+    alertBox.innerHTML = message;
+}
+
+function validateCongeEntry() {
+    const empId = document.getElementById('conge-emp-id')?.value;
+    const type = document.getElementById('conge-type')?.value;
+    const debut = document.getElementById('conge-debut')?.value;
+    const fin = document.getElementById('conge-fin')?.value;
+    const congeId = document.getElementById('conge-id')?.value;
+    const alertBox = document.getElementById('conge-validation-alert');
+
+    if (alertBox) alertBox.style.display = 'none';
+
+    if (!empId || !debut || !fin) {
+        return { valid: false, isBlocking: true, reason: 'missing_fields' };
+    }
+
+    const d1 = new Date(debut);
+    const d2 = new Date(fin);
+
+    // 1. Date coherence check (End before start)
+    if (isNaN(d1.getTime()) || isNaN(d2.getTime())) {
+        showCongeAlert('<i class="fa-solid fa-circle-exclamation"></i> <strong>Dates invalides :</strong> Veuillez renseigner des dates correctes.', 'danger');
+        return { valid: false, isBlocking: true, reason: 'invalid_date' };
+    }
+
+    if (d2 < d1) {
+        showCongeAlert('<i class="fa-solid fa-triangle-exclamation"></i> <strong>Saisie Erronée :</strong> La date de fin de congé ne peut pas être antérieure à la date de début.', 'danger');
+        return { valid: false, isBlocking: true, reason: 'end_before_start' };
+    }
+
+    const emp = employees.find(e => e.id === empId);
+    if (!emp) return { valid: false, isBlocking: true };
+
+    // 2. Working days check (Zero working days selected)
+    const requestedDays = calcDaysBetween(debut, fin);
+    if (requestedDays === 0) {
+        showCongeAlert('<i class="fa-solid fa-circle-info"></i> <strong>Avertissement :</strong> La période sélectionnée ne comporte aucun jour travaillé (uniquement week-end ou jour férié).', 'warning');
+        return { valid: true, isBlocking: false, requestedDays: 0, reason: 'zero_working_days' };
+    }
+
+    // 3. Overlapping leaves check
+    const existingOverlap = (emp.conges || []).find(c => {
+        if (congeId && c.id === congeId) return false;
+        if (c.debut && c.fin && (c.statut === 'Validé' || !c.statut)) {
+            return (debut <= c.fin && fin >= c.debut);
+        }
+        return false;
+    });
+
+    if (existingOverlap) {
+        showCongeAlert(`<i class="fa-solid fa-ban"></i> <strong>Saisie Erronée (Chevauchement) :</strong> Un congé (${existingOverlap.type}) est déjà enregistré pour ce salarié du ${formatDateFR(existingOverlap.debut)} au ${formatDateFR(existingOverlap.fin)}.`, 'danger');
+        return { valid: false, isBlocking: true, reason: 'overlap' };
+    }
+
+    // 4. Leave Balance check (CP / RTT / Intérim)
+    const stats = calculateEmployeeLeaveStats(emp);
+
+    if (type === 'CP') {
+        if (stats.isInterim) {
+            showCongeAlert('<i class="fa-solid fa-hand"></i> <strong>Saisie Erronée (Statut Intérim) :</strong> Ce salarié est sous contrat Intérim (ses CP sont payés en ICCP 10% sur sa fiche de paie).', 'danger');
+            return { valid: false, isBlocking: true, reason: 'interim_cp' };
+        }
+        if (requestedDays > stats.cpSolde) {
+            showCongeAlert(`<i class="fa-solid fa-triangle-exclamation"></i> <strong>Solde CP Dépassé :</strong> Le salarié dispose de ${stats.cpSolde}j restants, mais la demande comporte ${requestedDays}j ouvrés.`, 'warning');
+            return { valid: true, isBlocking: false, requestedDays, reason: 'cp_overdraft' };
+        }
+    } else if (type === 'RTT') {
+        if (stats.isInterim || stats.rttAcquis === 0) {
+            showCongeAlert('<i class="fa-solid fa-hand"></i> <strong>Saisie Erronée (Non Éligible RTT) :</strong> Salarié sous statut Ouvrier / Intérim (0 RTT).', 'danger');
+            return { valid: false, isBlocking: true, reason: 'not_eligible_rtt' };
+        }
+        if (requestedDays > stats.rttSolde) {
+            showCongeAlert(`<i class="fa-solid fa-triangle-exclamation"></i> <strong>Solde RTT Dépassé :</strong> RTT disponibles : ${stats.rttSolde}j | Demande : ${requestedDays}j.`, 'warning');
+            return { valid: true, isBlocking: false, requestedDays, reason: 'rtt_overdraft' };
+        }
+    }
+
+    // Clear confirmation
+    showCongeAlert(`<i class="fa-solid fa-circle-check"></i> <strong>Saisie Conforme :</strong> ${requestedDays} jour(s) ouvré(s) seront décomptés.`, 'success');
+    return { valid: true, isBlocking: false, requestedDays };
+}
+
 async function saveCongeForm(e) {
     if (e && e.preventDefault) e.preventDefault();
+
+    const validation = validateCongeEntry();
+    if (!validation.valid && validation.isBlocking) {
+        alert('Saisie invalide ou erronée : Veuillez corriger les erreurs indiquées avant de valider.');
+        return;
+    }
 
     const empId = document.getElementById('conge-emp-id')?.value;
     const type = document.getElementById('conge-type')?.value;
