@@ -1129,7 +1129,7 @@
                         </div>
                         <div class="form-group">
                             <label>Catégorie *</label>
-                            <select id="emp-categorie" class="form-select">
+                            <select id="emp-categorie" class="form-select" onchange="onEmployeeContratOrCatChange()">
                                 <option value="Ouvrier">Ouvrier</option>
                                 <option value="ETAM">ETAM</option>
                                 <option value="Cadre">Cadre</option>
@@ -1138,10 +1138,13 @@
                         </div>
                         <div class="form-group">
                             <label>Type de Contrat *</label>
-                            <select id="emp-contrat" class="form-select">
+                            <select id="emp-contrat" class="form-select" onchange="onEmployeeContratOrCatChange()">
                                 <option value="CDI">CDI</option>
                                 <option value="Intérim">Intérim</option>
                             </select>
+                        </div>
+                        <div class="form-group full" id="emp-interim-helper" style="display: none; padding: 10px 14px; border-radius: 6px; font-size: 0.82rem; margin-bottom: 10px;">
+                            <!-- Injected by JS on contrat change -->
                         </div>
                         <div class="form-group">
                             <label>Date d'entrée</label>
@@ -1284,7 +1287,7 @@
     </div>
 
     <!-- Application JS Logic -->
-    <script src="data.js?v=20260729-v17"></script>
-    <script src="app.js?v=20260729-v17"></script>
+    <script src="data.js?v=20260729-v18"></script>
+    <script src="app.js?v=20260729-v18"></script>
 </body>
 </html>

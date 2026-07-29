@@ -592,19 +592,59 @@ function openAddEmpModal() {
     const _el_37 = document.getElementById('emp-epi-pantalon');
     if (_el_37) _el_37.value = '';
     const _el_38 = document.getElementById('emp-epi-chaussures');
-    if (_el_38) _el_38.value = '';
+    const _el_helper = document.getElementById('emp-interim-helper');
+    if (_el_helper) _el_helper.style.display = 'none';
 
     document.getElementById('modal-employee')?.classList.add('active');
 }
 
+function onEmployeeContratOrCatChange() {
+    const contratEl = document.getElementById('emp-contrat');
+    const catEl = document.getElementById('emp-categorie');
+    const cpEl = document.getElementById('emp-cp-acquis');
+    const rttEl = document.getElementById('emp-rtt-acquis');
+    const helperEl = document.getElementById('emp-interim-helper');
+
+    if (!contratEl || !catEl || !cpEl || !rttEl) return;
+
+    const contrat = contratEl.value;
+    const cat = catEl.value;
+
+    if (contrat === 'Intérim' || cat === 'Intérimaire') {
+        cpEl.value = '0';
+        rttEl.value = '0';
+        if (helperEl) {
+            helperEl.style.display = 'block';
+            helperEl.style.background = '#fff7ed';
+            helperEl.style.color = '#c2410c';
+            helperEl.style.border = '1px solid #ffedd5';
+            helperEl.innerHTML = '<i class="fa-solid fa-circle-info"></i> <strong>Statut Intérim :</strong> CP versés sous forme d\'ICCP (10% en fin de mission) — 0 RTT.';
+        }
+    } else {
+        // CDI or CDD
+        const isCadreOrAM = (cat === 'Cadre' || cat === 'ETAM' || cat.includes('MAITRISE'));
+        if (cpEl.value === '0' || !cpEl.value) cpEl.value = '25';
+        rttEl.value = isCadreOrAM ? '10' : '0';
+
+        if (helperEl) {
+            helperEl.style.display = 'block';
+            helperEl.style.background = '#f0fdf4';
+            helperEl.style.color = '#15803d';
+            helperEl.style.border = '1px solid #bbf7d0';
+            helperEl.innerHTML = `<i class="fa-solid fa-circle-check"></i> <strong>Contrat ${contrat} :</strong> 25j CP réinitialisés — ${isCadreOrAM ? '10j RTT (Cadre/ETAM)' : '0 RTT (Statut Ouvrier)'}.`;
+        }
+    }
+}
+
 function calculateEmployeeLeaveStats(emp, year = null) {
     const targetYear = (year && year !== 'all') ? year : new Date().getFullYear().toString();
-    const cpAnciennete = emp.cpAnciennete !== undefined ? parseFloat(emp.cpAnciennete) : 0;
-    const cpAcquis = emp.cpAcquis !== undefined ? parseFloat(emp.cpAcquis) : 25;
+    const isInterim = (emp.contrat === 'Intérim' || emp.categorie === 'Intérimaire');
+    const cpAnciennete = (isInterim) ? 0 : (emp.cpAnciennete !== undefined ? parseFloat(emp.cpAnciennete) : 0);
+    const cpAcquis = (isInterim) ? 0 : (emp.cpAcquis !== undefined ? parseFloat(emp.cpAcquis) : 25);
     
-    // RTT Rights: Only Cadre / Agent de Maîtrise gets 10 RTT. Ouvriers = 0 RTT
-    const isCadreOrAM = (emp.categorie && (emp.categorie.includes('MAITRISE') || emp.categorie.includes('CADRE') || emp.categorie.includes('EMPLOYE')));
-    const rttAcquis = emp.rttAcquis !== undefined ? parseFloat(emp.rttAcquis) : (isCadreOrAM ? 10 : 0);
+    // RTT Rights: Only Cadre / Agent de Maîtrise gets 10 RTT. Ouvriers & Intérimaires = 0 RTT
+    const isCadreOrAM = !isInterim && (emp.categorie && (emp.categorie.includes('MAITRISE') || emp.categorie.includes('CADRE') || emp.categorie.includes('EMPLOYE')));
+    const rttAcquis = (isInterim) ? 0 : (emp.rttAcquis !== undefined ? parseFloat(emp.rttAcquis) : (isCadreOrAM ? 10 : 0));
 
     let cpPris = 0;
     let rttPris = 0;
@@ -632,7 +672,8 @@ function calculateEmployeeLeaveStats(emp, year = null) {
         rttAcquis,
         rttPris,
         rttSolde,
-        isCadreOrAM
+        isCadreOrAM,
+        isInterim
     };
 }
 
@@ -805,9 +846,19 @@ function renderCongesTable() {
 
         const leaveStats = calculateEmployeeLeaveStats(emp, year);
         const ancBadge = leaveStats.cpAnciennete > 0 ? `<div style="font-size:0.72rem; color:#059669; font-weight:700; margin-top:2px;">+${leaveStats.cpAnciennete}j d'ancienneté (Paprec)</div>` : '';
-        const rttSub = leaveStats.rttAcquis > 0 
+        
+        let rttSub = leaveStats.rttAcquis > 0 
             ? `Acquis: ${leaveStats.rttAcquis}j | Pris: ${leaveStats.rttPris}j` 
             : `<span style="color:#94a3b8; font-style:italic;">Non éligible (Statut Ouvrier)</span>`;
+
+        let cpBadgeHtml = `<span class="badge badge-primary" style="font-size:0.85rem; font-weight:700;">Restant : ${leaveStats.cpSolde} j</span>
+            <div style="font-size:0.75rem; color:var(--text-muted); margin-top:3px;">Acquis: ${leaveStats.cpAcquis}j | Pris: ${leaveStats.cpPris}j</div>`;
+
+        if (leaveStats.isInterim) {
+            cpBadgeHtml = `<span class="badge" style="background:#fff7ed; color:#c2410c; font-size:0.82rem; font-weight:700;">0 j (Intérim)</span>
+                <div style="font-size:0.73rem; color:#ea580c; margin-top:2px;">ICCP 10% sur fiche de paie</div>`;
+            rttSub = `<span style="color:#c2410c; font-style:italic;">Non éligible (Intérim)</span>`;
+        }
 
         tr.innerHTML = `
             <td>
@@ -816,8 +867,7 @@ function renderCongesTable() {
             </td>
             <td><span class="badge badge-gray">${emp.role || emp.metier}</span></td>
             <td style="text-align: center;">
-                <span class="badge badge-primary" style="font-size:0.85rem; font-weight:700;">Restant : ${leaveStats.cpSolde} j</span>
-                <div style="font-size:0.75rem; color:var(--text-muted); margin-top:3px;">Acquis: ${leaveStats.cpAcquis}j | Pris: ${leaveStats.cpPris}j</div>
+                ${cpBadgeHtml}
                 ${ancBadge}
             </td>
             <td style="text-align: center;">
@@ -3221,10 +3271,34 @@ async function saveEmployeeForm(e) {
         return;
     }
 
+    // Auto-detect Intérim -> CDI conversion or Intérim setup
+    let finalCpAcquis = cpAcquis;
+    let finalRttAcquis = rttAcquis;
+
+    if (id) {
+        const existingEmp = employees.find(e => e.id === id);
+        if (existingEmp) {
+            const wasInterim = (existingEmp.contrat === 'Intérim' || existingEmp.categorie === 'Intérimaire');
+            const nowIsCDI = (contrat === 'CDI' || contrat === 'CDD');
+
+            if (wasInterim && nowIsCDI) {
+                const isCadreOrAM = (categorie === 'Cadre' || categorie === 'ETAM' || categorie.includes('MAITRISE'));
+                finalCpAcquis = 25;
+                finalRttAcquis = isCadreOrAM ? 10 : 0;
+                showToast(`Passage de l'intérimaire en ${contrat} : Soldes CP (25j) et RTT (${finalRttAcquis}j) initialisés automatiquement !`, 'success');
+            }
+        }
+    }
+
+    if (contrat === 'Intérim' || categorie === 'Intérimaire') {
+        finalCpAcquis = 0;
+        finalRttAcquis = 0;
+    }
+
     const formData = {
         id: id, nom: nom, prenom: prenom, metier: metier, role: role, categorie: categorie, contrat: contrat,
         dateEntree: dateEntree, visiteMedicale: visiteMedicale, telephone: telephone, email: email,
-        cpAcquis: cpAcquis, rttAcquis: rttAcquis,
+        cpAcquis: finalCpAcquis, rttAcquis: finalRttAcquis,
         tailleEpi: { veste: veste, pantalon: pantalon, chaussures: chaussures }
     };
 
