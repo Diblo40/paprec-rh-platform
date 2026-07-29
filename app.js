@@ -599,8 +599,12 @@ function openAddEmpModal() {
 
 function calculateEmployeeLeaveStats(emp, year = null) {
     const targetYear = (year && year !== 'all') ? year : new Date().getFullYear().toString();
+    const cpAnciennete = emp.cpAnciennete !== undefined ? parseFloat(emp.cpAnciennete) : 0;
     const cpAcquis = emp.cpAcquis !== undefined ? parseFloat(emp.cpAcquis) : 25;
-    const rttAcquis = emp.rttAcquis !== undefined ? parseFloat(emp.rttAcquis) : 10;
+    
+    // RTT Rights: Only Cadre / Agent de Maîtrise gets 10 RTT. Ouvriers = 0 RTT
+    const isCadreOrAM = (emp.categorie && (emp.categorie.includes('MAITRISE') || emp.categorie.includes('CADRE') || emp.categorie.includes('EMPLOYE')));
+    const rttAcquis = emp.rttAcquis !== undefined ? parseFloat(emp.rttAcquis) : (isCadreOrAM ? 10 : 0);
 
     let cpPris = 0;
     let rttPris = 0;
@@ -615,16 +619,20 @@ function calculateEmployeeLeaveStats(emp, year = null) {
         }
     });
 
-    const cpSolde = Math.max(0, cpAcquis - cpPris);
+    const totalCpDroits = cpAcquis + cpAnciennete;
+    const cpSolde = Math.max(0, totalCpDroits - cpPris);
     const rttSolde = Math.max(0, rttAcquis - rttPris);
 
     return {
         cpAcquis,
+        cpAnciennete,
+        totalCpDroits,
         cpPris,
         cpSolde,
         rttAcquis,
         rttPris,
-        rttSolde
+        rttSolde,
+        isCadreOrAM
     };
 }
 
@@ -796,17 +804,27 @@ function renderCongesTable() {
         }
 
         const leaveStats = calculateEmployeeLeaveStats(emp, year);
+        const ancBadge = leaveStats.cpAnciennete > 0 ? `<div style="font-size:0.72rem; color:#059669; font-weight:700; margin-top:2px;">+${leaveStats.cpAnciennete}j d'ancienneté (Paprec)</div>` : '';
+        const rttSub = leaveStats.rttAcquis > 0 
+            ? `Acquis: ${leaveStats.rttAcquis}j | Pris: ${leaveStats.rttPris}j` 
+            : `<span style="color:#94a3b8; font-style:italic;">Non éligible (Statut Ouvrier)</span>`;
 
         tr.innerHTML = `
-            <td><strong>${emp.prenom} ${emp.nom}</strong></td>
+            <td>
+                <strong>${emp.prenom} ${emp.nom}</strong>
+                <div style="font-size:0.75rem; color:var(--text-muted);">${emp.categorie || 'Ouvrier'}</div>
+            </td>
             <td><span class="badge badge-gray">${emp.role || emp.metier}</span></td>
             <td style="text-align: center;">
                 <span class="badge badge-primary" style="font-size:0.85rem; font-weight:700;">Restant : ${leaveStats.cpSolde} j</span>
                 <div style="font-size:0.75rem; color:var(--text-muted); margin-top:3px;">Acquis: ${leaveStats.cpAcquis}j | Pris: ${leaveStats.cpPris}j</div>
+                ${ancBadge}
             </td>
             <td style="text-align: center;">
-                <span class="badge badge-secondary" style="font-size:0.85rem; font-weight:700;">Restant : ${leaveStats.rttSolde} j</span>
-                <div style="font-size:0.75rem; color:var(--text-muted); margin-top:3px;">Acquis: ${leaveStats.rttAcquis}j | Pris: ${leaveStats.rttPris}j</div>
+                ${leaveStats.rttAcquis > 0 
+                    ? `<span class="badge badge-secondary" style="font-size:0.85rem; font-weight:700;">Restant : ${leaveStats.rttSolde} j</span>` 
+                    : `<span class="badge" style="background:#f1f5f9; color:#94a3b8; font-size:0.8rem;">0 RTT</span>`}
+                <div style="font-size:0.75rem; margin-top:3px;">${rttSub}</div>
             </td>
             <td>${congesHtml}</td>
             <td style="text-align: right;" onclick="event.stopPropagation()">
