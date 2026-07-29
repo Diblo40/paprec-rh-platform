@@ -169,6 +169,9 @@
                     <button class="btn btn-outline" onclick="openCongesNoticeModal()">
                         <i class="fa-solid fa-circle-info"></i> Notice & Calcul Congés
                     </button>
+                    <button class="btn btn-outline" onclick="openArchiveCongesModal()" title="Archivage annuel et nettoyage de l'historique">
+                        <i class="fa-solid fa-box-archive"></i> Archivage & Nettoyage
+                    </button>
                     <button class="btn btn-secondary" id="btn-open-add-conge">
                         <i class="fa-solid fa-calendar-plus"></i> Saisir un Congé
                     </button>
@@ -985,6 +988,58 @@
         </div>
     </div>
 
+    <!-- MODAL ARCHIVAGE & PURGE ANNUELLE DES CONGÉS -->
+    <div class="modal-overlay" id="modal-archive-conges">
+        <div class="modal-content" style="max-width: 580px;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-box-archive"></i> Clôture, Archivage & Nettoyage Annuel des Congés</h3>
+                <button class="btn-icon btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" style="line-height: 1.6; font-size: 0.9rem;">
+                <p style="margin-bottom: 16px; color: var(--text-muted);">
+                    Pour éviter d'accumuler un historique trop lourd au fil des années, cet outil vous permet d'<strong>exporter l'intégralité de l'historique des congés sur Excel</strong> avant d'effectuer un nettoyage des données.
+                </p>
+
+                <!-- ÉTAPE 1 : TÉLÉCHARGEMENT DE L'ARCHIVE -->
+                <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+                    <h4 style="font-size: 0.95rem; color: var(--primary); margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+                        <span style="background: var(--primary); color: white; border-radius: 50%; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem;">1</span>
+                        Télécharger l'Archive Sécurisée
+                    </h4>
+                    <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 10px;">
+                        Génère un fichier Excel (.CSV UTF-8) contenant tous les congés (Nom, Prénom, Métier, Dates, Jours Ouvrés, Motif, Statut).
+                    </p>
+                    <button class="btn btn-primary" onclick="exportCongesToExcelCSV()" style="width: 100%;">
+                        <i class="fa-solid fa-file-csv"></i> Télécharger l'Archive Complète (.CSV Excel)
+                    </button>
+                </div>
+
+                <!-- ÉTAPE 2 : NETTOYAGE / PURGE DES ANCIENNES DONNÉES -->
+                <div style="background: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 14px;">
+                    <h4 style="font-size: 0.95rem; color: #9f1239; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+                        <span style="background: #e11d48; color: white; border-radius: 50%; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem;">2</span>
+                        Nettoyage / Purge de l'Historique
+                    </h4>
+                    <p style="font-size: 0.82rem; color: #be123c; margin-bottom: 12px;">
+                        Cette action supprime les enregistrements de la base de données. <em>Le téléchargement préalable de l'archive (Étape 1) est obligatoire.</em>
+                    </p>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <button class="btn btn-outline" id="btn-execute-purge-prior" onclick="executePurgeConges('prior_2026')" disabled style="text-align: left; justify-content: flex-start;">
+                            <i class="fa-solid fa-trash-can"></i> Purger les congés des exercices antérieurs à 2026
+                        </button>
+                        <button class="btn btn-outline" id="btn-execute-purge-all" onclick="executePurgeConges('all')" disabled style="text-align: left; justify-content: flex-start;">
+                            <i class="fa-solid fa-broom"></i> Remettre à zéro l'historique complet pour le nouvel exercice
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline btn-close-modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL IMPRESSIONS LÉGALES RH (APERÇU PAYSAGE) -->
     <div class="modal-overlay" id="modal-printable-doc">
         <div class="modal-content" style="max-width: 850px;">
@@ -1229,7 +1284,7 @@
     </div>
 
     <!-- Application JS Logic -->
-    <script src="data.js?v=20260729-v14"></script>
-    <script src="app.js?v=20260729-v14"></script>
+    <script src="data.js?v=20260729-v15"></script>
+    <script src="app.js?v=20260729-v15"></script>
 </body>
 </html>

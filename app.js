@@ -1179,6 +1179,118 @@ function openCongesNoticeModal() {
     document.getElementById('modal-conges-notice')?.classList.add('active');
 }
 
+let hasDownloadedCongesArchive = false;
+
+function openArchiveCongesModal() {
+    hasDownloadedCongesArchive = false;
+    const btnPrior = document.getElementById('btn-execute-purge-prior');
+    const btnAll = document.getElementById('btn-execute-purge-all');
+
+    if (btnPrior) {
+        btnPrior.disabled = true;
+        btnPrior.classList.add('btn-outline');
+        btnPrior.classList.remove('btn-primary');
+    }
+    if (btnAll) {
+        btnAll.disabled = true;
+        btnAll.classList.add('btn-outline');
+        btnAll.classList.remove('btn-danger');
+    }
+
+    document.getElementById('modal-archive-conges')?.classList.add('active');
+}
+
+function exportCongesToExcelCSV() {
+    let csvContent = "\uFEFF"; // UTF-8 BOM so Excel opens French accents cleanly
+    csvContent += "ID Salarié;Nom;Prénom;Métier / Rôle;Type Congé;Date Début;Date Fin;Nombre Jours Ouvrés;Motif;Statut\n";
+
+    let totalRecords = 0;
+    employees.forEach(emp => {
+        (emp.conges || []).forEach(c => {
+            const days = calcDaysBetween(c.debut, c.fin);
+            const line = [
+                `"${emp.id}"`,
+                `"${(emp.nom || '').replace(/"/g, '""')}"`,
+                `"${(emp.prenom || '').replace(/"/g, '""')}"`,
+                `"${(emp.metier || emp.role || '').replace(/"/g, '""')}"`,
+                `"${(c.type || '').replace(/"/g, '""')}"`,
+                `"${c.debut || ''}"`,
+                `"${c.fin || ''}"`,
+                `"${days}"`,
+                `"${(c.motif || '').replace(/"/g, '""')}"`,
+                `"${(c.statut || 'Validé').replace(/"/g, '""')}"`
+            ].join(';');
+            csvContent += line + "\n";
+            totalRecords++;
+        });
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const nowStr = new Date().toISOString().split('T')[0];
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Archive_Historique_Conges_Paprec_${nowStr}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // Unlock Purge step once downloaded
+    hasDownloadedCongesArchive = true;
+    const btnPrior = document.getElementById('btn-execute-purge-prior');
+    const btnAll = document.getElementById('btn-execute-purge-all');
+
+    if (btnPrior) {
+        btnPrior.disabled = false;
+        btnPrior.classList.remove('btn-outline');
+        btnPrior.classList.add('btn-primary');
+    }
+    if (btnAll) {
+        btnAll.disabled = false;
+        btnAll.classList.remove('btn-outline');
+        btnAll.classList.add('btn-danger');
+    }
+
+    showToast(`Archive Excel téléchargée avec succès (${totalRecords} enregistrements) !`, 'success');
+}
+
+async function executePurgeConges(purgeType) {
+    if (!hasDownloadedCongesArchive) {
+        alert("Sécurité : Veuillez d'abord télécharger l'archive Excel (Étape 1) avant d'effectuer la purge.");
+        return;
+    }
+
+    const confirmMsg = purgeType === 'prior_2026'
+        ? "Êtes-vous sûr de vouloir supprimer tous les congés antérieurs à l'exercice 2026 ?\n(L'archive Excel téléchargée servira de preuve historique)."
+        : "ATTENTION : Êtes-vous sûr de vouloir remettre à zéro l'historique complet des congés pour le nouvel exercice ?\n(L'archive Excel téléchargée servira de preuve historique).";
+
+    if (!confirm(confirmMsg)) return;
+
+    let purgedTotal = 0;
+
+    for (let emp of employees) {
+        if (!emp.conges) continue;
+        const initialCount = emp.conges.length;
+
+        if (purgeType === 'prior_2026') {
+            // Keep 2026 and future leaves
+            emp.conges = emp.conges.filter(c => c.debut && c.debut >= '2026-01-01');
+        } else {
+            // Reset for new exercise
+            emp.conges = [];
+        }
+
+        purgedTotal += (initialCount - emp.conges.length);
+        await saveEmployee(emp);
+    }
+
+    closeModals();
+    renderConges();
+    renderPlanning();
+    renderPersonnel();
+    showToast(`Purge réussie : ${purgedTotal} enregistrements archivés et nettoyés !`, 'success');
+}
+
 function openAddCongeModal() {
     populateEmpSelect();
     const _el_59 = document.getElementById('conge-id');
