@@ -764,10 +764,12 @@ function renderCongesCalendar3Months() {
     const yearVal = document.getElementById('conges-year-select')?.value;
     if (yearVal && yearVal !== 'all') {
         const pYear = parseInt(yearVal);
-        if (!isNaN(pYear) && pYear !== currentCongesStartYear) {
+        if (!isNaN(pYear)) {
             currentCongesStartYear = pYear;
-            currentCongesStartMonth = 5; // Juin (start of exercise)
         }
+    } else if (yearVal === 'all' && currentCongesStartYear === 2026) {
+        currentCongesStartYear = 2024; // Default to 2024 exercise with transposed leaves
+        currentCongesStartMonth = 5; // Juin
     }
 
     const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
