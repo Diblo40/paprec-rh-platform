@@ -395,7 +395,7 @@ function openProfileModal(empId) {
         if (_el_23) _el_23.textContent = 'Non renseigné';
     }
 
-    const leaveStats = calculateEmployeeLeaveStats(emp, 'all');
+    const leaveStats = calculateEmployeeLeaveStats(emp, '2026');
     const _el_solde_cp = document.getElementById('profile-solde-cp'); if (_el_solde_cp) _el_solde_cp.innerHTML = `
         <span style="font-size: 1.3rem; font-weight:800; color:var(--primary);">${leaveStats.cpSolde} j restants</span>
         <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Acquis: ${leaveStats.cpAcquis} j | Pris: ${leaveStats.cpPris} j</div>
@@ -761,15 +761,14 @@ function renderCongesCalendar3Months() {
     if (!container) return;
     container.innerHTML = '';
 
-    const yearVal = document.getElementById('conges-year-select')?.value;
+    const yearVal = document.getElementById('conges-year-select')?.value || '2026';
     if (yearVal && yearVal !== 'all') {
         const pYear = parseInt(yearVal);
         if (!isNaN(pYear)) {
             currentCongesStartYear = pYear;
         }
-    } else if (yearVal === 'all' && currentCongesStartYear === 2026) {
-        currentCongesStartYear = 2024; // Default to 2024 exercise with transposed leaves
-        currentCongesStartMonth = 5; // Juin
+    } else {
+        currentCongesStartYear = 2026;
     }
 
     const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
