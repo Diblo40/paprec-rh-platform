@@ -142,11 +142,16 @@
             <div class="control-bar">
                 <div style="display: flex; align-items: center; gap: 16px;">
                     <label style="font-weight: 700; color: var(--primary);">Exercice / Année :</label>
-                    <select id="conges-year-select" class="form-select" style="font-weight: 700; font-size: 1rem;">
-                        <option value="2024">2024 - 2025</option>
-                        <option value="2025">2025 - 2026</option>
-                        <option value="2026" selected>2026 - 2027</option>
-                        <option value="2027">2027 - 2028</option>
+                    <select id="conges-year-select" class="form-select" style="font-weight: 700; font-size: 1rem;" onchange="renderConges()">
+                        <option value="all">Tous les Exercices (2019 - 2026)</option>
+                        <option value="2026" selected>Exercice 2026 - 2027</option>
+                        <option value="2025">Exercice 2025 - 2026</option>
+                        <option value="2024">Exercice 2024 - 2025</option>
+                        <option value="2023">Exercice 2023 - 2024</option>
+                        <option value="2022">Exercice 2022 - 2023</option>
+                        <option value="2021">Exercice 2021 - 2022</option>
+                        <option value="2020">Exercice 2020 - 2021</option>
+                        <option value="2019">Exercice 2019 - 2020</option>
                     </select>
                     <div class="view-switch-group">
                         <button class="view-switch-btn active" id="btn-conges-view-table">
@@ -158,7 +163,7 @@
                     </div>
                 </div>
                 <div class="filters-group">
-                    <select id="filter-metier-conges" class="form-select">
+                    <select id="filter-metier-conges" class="form-select" onchange="renderConges()">
                         <option value="all">Tous les métiers</option>
                         <option value="Chauffeurs">Chauffeurs</option>
                         <option value="Bascule & Accueil">Bascule</option>
@@ -1174,7 +1179,7 @@
     </div>
 
     <!-- Application JS Logic -->
-    <script src="data.js?v=20260728-v5"></script>
-    <script src="app.js?v=20260728-v5"></script>
+    <script src="data.js?v=20260729-v6"></script>
+    <script src="app.js?v=20260729-v6"></script>
 </body>
 </html>
