@@ -844,10 +844,10 @@ function getMetierColorInfo(emp) {
 
     if (combined.includes('chauffeur') || combined.includes('conducteur')) {
         return {
-            bg: '#dbeafe',
-            color: '#1e3a8a',
-            border: '#2563eb',
-            name: 'Chauffeurs'
+            bg: '#ffedd5',
+            color: '#9a3412',
+            border: '#ea580c',
+            name: 'Chauffeurs & Conducteurs'
         };
     } else if (combined.includes('dalle') || combined.includes('tri') || combined.includes('exploitation') || combined.includes('cariste') || combined.includes('operator') || combined.includes('opérateur')) {
         return {
@@ -865,9 +865,9 @@ function getMetierColorInfo(emp) {
         };
     } else {
         return {
-            bg: '#fef3c7',
-            color: '#78350f',
-            border: '#d97706',
+            bg: '#e0f2fe',
+            color: '#0369a1',
+            border: '#0284c7',
             name: 'Maintenance & Autres'
         };
     }
@@ -1118,10 +1118,10 @@ function executePrintCongesMonth() {
     const printLegendHtml = `
         <div style="display: flex; gap: 12px; margin-bottom: 12px; font-size: 9px; font-weight: 700; background: #f8fafc; padding: 4px 8px; border-radius: 4px; border: 1px solid #cbd5e1; align-items: center;">
             <span style="color: #004d99; font-weight: 800;">Légende Métiers :</span>
-            <span style="background: #dbeafe; color: #1e3a8a; padding: 1px 6px; border-radius: 3px; border-left: 3px solid #2563eb;">Chauffeurs</span>
+            <span style="background: #ffedd5; color: #9a3412; padding: 1px 6px; border-radius: 3px; border-left: 3px solid #ea580c;">Chauffeurs & Conducteurs</span>
             <span style="background: #d1fae5; color: #064e3b; padding: 1px 6px; border-radius: 3px; border-left: 3px solid #059669;">Dalles & Tri</span>
             <span style="background: #ede9fe; color: #4c1d95; padding: 1px 6px; border-radius: 3px; border-left: 3px solid #7c3aed;">Bureaux</span>
-            <span style="background: #fef3c7; color: #78350f; padding: 1px 6px; border-radius: 3px; border-left: 3px solid #d97706;">Maintenance & Autres</span>
+            <span style="background: #e0f2fe; color: #0369a1; padding: 1px 6px; border-radius: 3px; border-left: 3px solid #0284c7;">Maintenance & Autres</span>
         </div>
     `;
 
