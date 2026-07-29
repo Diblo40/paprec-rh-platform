@@ -164,13 +164,71 @@ function getInitials(nom, prenom) {
     return (p + n).toUpperCase() || 'RH';
 }
 
+function getFrenchEaster(year) {
+    const a = year % 19;
+    const b = Math.floor(year / 100);
+    const c = year % 100;
+    const d = Math.floor(b / 4);
+    const e = b % 4;
+    const f = Math.floor((b + 8) / 25);
+    const g = Math.floor((b - f + 1) / 3);
+    const h = (19 * a + b - d - g + 15) % 30;
+    const i = Math.floor(c / 4);
+    const k = c % 4;
+    const l = (32 + 2 * e + 2 * i - h - k) % 7;
+    const m = Math.floor((a + 11 * h + 22 * l) / 451);
+    const month = Math.floor((h + l - 7 * m + 114) / 31);
+    const day = ((h + l - 7 * m + 114) % 31) + 1;
+    return new Date(Date.UTC(year, month - 1, day));
+}
+
+function isFrenchPublicHoliday(dateObj) {
+    const y = dateObj.getFullYear();
+    const m = dateObj.getMonth();
+    const d = dateObj.getDate();
+    const formatted = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+    const fixed = [
+        `${y}-01-01`, // Jour de l'An
+        `${y}-05-01`, // Fête du Travail
+        `${y}-05-08`, // Victoire 1945
+        `${y}-07-14`, // Fête Nationale
+        `${y}-08-15`, // Assomption
+        `${y}-11-01`, // Toussaint
+        `${y}-11-11`, // Armistice 1918
+        `${y}-12-25`  // Noël
+    ];
+    if (fixed.includes(formatted)) return true;
+
+    // Mobile holidays (Easter Monday, Ascension, Whit Monday)
+    const easter = getFrenchEaster(y);
+    const mondayEaster = new Date(easter.getTime() + 86400000);
+    const ascension = new Date(easter.getTime() + 39 * 86400000);
+    const mondayPentecost = new Date(easter.getTime() + 50 * 86400000);
+
+    const toStr = dObj => `${dObj.getUTCFullYear()}-${String(dObj.getUTCMonth() + 1).padStart(2, '0')}-${String(dObj.getUTCDate()).padStart(2, '0')}`;
+    const mobileHolidays = [toStr(mondayEaster), toStr(ascension), toStr(mondayPentecost)];
+
+    return mobileHolidays.includes(formatted);
+}
+
+// Calculate open working days excluding weekends (Saturdays & Sundays) and French public holidays
 function calcDaysBetween(startStr, endStr) {
     if (!startStr || !endStr) return 0;
     const d1 = new Date(startStr);
     const d2 = new Date(endStr);
-    const diff = d2 - d1;
-    if (diff < 0) return 0;
-    return Math.floor(diff / (1000 * 60 * 60 * 24)) + 1;
+    if (isNaN(d1.getTime()) || isNaN(d2.getTime()) || d2 < d1) return 0;
+
+    let workingDays = 0;
+    let curr = new Date(d1);
+    while (curr <= d2) {
+        const dayOfWeek = curr.getDay(); // 0 = Sun, 6 = Sat
+        if (dayOfWeek !== 0 && dayOfWeek !== 6 && !isFrenchPublicHoliday(curr)) {
+            workingDays++;
+        }
+        curr.setDate(curr.getDate() + 1);
+    }
+    return workingDays;
 }
 
 function calcExpirationStatus(expirationDate) {
@@ -854,6 +912,145 @@ function changeCongesQuarter(offset) {
         currentCongesStartYear++;
     }
     renderCongesCalendar3Months();
+}
+
+function openPrintCongesModal() {
+    const sel = document.getElementById('print-conges-month-select');
+    if (!sel) return;
+    sel.innerHTML = '';
+
+    const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+
+    // Option 1: Current Quarter (3 Months)
+    const optAll = document.createElement('option');
+    optAll.value = 'all-3';
+    optAll.textContent = `📋 Trimestre Complet en cours (${monthNames[currentCongesStartMonth]} - ${monthNames[(currentCongesStartMonth + 2) % 12]} ${currentCongesStartYear})`;
+    sel.appendChild(optAll);
+
+    // Option 2: Individual months of current rendered quarter
+    for (let mOffset = 0; mOffset < 3; mOffset++) {
+        let mIdx = currentCongesStartMonth + mOffset;
+        let yNum = currentCongesStartYear;
+        if (mIdx > 11) {
+            mIdx -= 12;
+            yNum++;
+        }
+        const opt = document.createElement('option');
+        opt.value = `${mIdx}_${yNum}`;
+        opt.textContent = `📅 Mois de ${monthNames[mIdx]} ${yNum}`;
+        if (mOffset === 0) opt.selected = true; // Default to 1st month
+        sel.appendChild(opt);
+    }
+
+    // Divider
+    const optDiv = document.createElement('option');
+    optDiv.disabled = true;
+    optDiv.textContent = `────── Tous les mois de l'année ${currentCongesStartYear} ──────`;
+    sel.appendChild(optDiv);
+
+    // All months of the year
+    for (let m = 0; m < 12; m++) {
+        const opt = document.createElement('option');
+        opt.value = `${m}_${currentCongesStartYear}`;
+        opt.textContent = `📅 ${monthNames[m]} ${currentCongesStartYear}`;
+        sel.appendChild(opt);
+    }
+
+    document.getElementById('modal-print-conges')?.classList.add('active');
+}
+
+function executePrintCongesMonth() {
+    const selVal = document.getElementById('print-conges-month-select')?.value;
+    closeModals();
+
+    if (!selVal) return;
+
+    if (selVal === 'all-3') {
+        printCongesCalendarClean();
+        return;
+    }
+
+    const [monthIdxStr, yearStr] = selVal.split('_');
+    const monthIdx = parseInt(monthIdxStr);
+    const yearNum = parseInt(yearStr);
+
+    const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+
+    // Render single month html for print
+    const monthBox = document.createElement('div');
+    monthBox.style.border = '1px solid var(--border-color)';
+    monthBox.style.borderRadius = '10px';
+    monthBox.style.overflow = 'hidden';
+    monthBox.style.background = '#ffffff';
+
+    const headerHtml = `
+        <div style="background: var(--primary-light); color: var(--primary); font-weight:700; padding: 10px 16px; font-size:1.1rem; border-bottom: 1px solid var(--border-color); text-align:center;">
+            Planning des Congés & Absences — ${monthNames[monthIdx]} ${yearNum}
+        </div>
+        <div class="calendar-grid-header">
+            <div>Lun</div><div>Mar</div><div>Mer</div><div>Jeu</div><div>Ven</div><div>Sam</div><div>Dim</div>
+        </div>
+    `;
+
+    const firstDay = new Date(yearNum, monthIdx, 1);
+    const lastDay = new Date(yearNum, monthIdx + 1, 0);
+
+    let startingDay = firstDay.getDay() - 1;
+    if (startingDay === -1) startingDay = 6;
+
+    const totalDays = lastDay.getDate();
+
+    let daysHtml = `<div class="calendar-grid-days">`;
+
+    for (let i = 0; i < startingDay; i++) {
+        daysHtml += `<div class="calendar-day-cell" style="background:#f8fafc;"></div>`;
+    }
+
+    for (let day = 1; day <= totalDays; day++) {
+        const dayStr = `${yearNum}-${String(monthIdx + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const curDate = new Date(yearNum, monthIdx, day);
+        const isWeekend = curDate.getDay() === 0 || curDate.getDay() === 6;
+        const isHoli = isFrenchPublicHoliday(curDate);
+        const bgStyle = isHoli ? 'background:#fee2e2;' : (isWeekend ? 'background:#f1f5f9;' : 'background:#ffffff;');
+
+        let eventsHtml = '';
+        employees.forEach(emp => {
+            (emp.conges || []).forEach(c => {
+                if (c.debut && c.fin && dayStr >= c.debut && dayStr <= c.fin) {
+                    let tagCl = 'cp';
+                    if (c.type === 'RTT') tagCl = 'rtt';
+                    if (c.type === 'Maladie' || c.type === 'AT') tagCl = 'maladie';
+
+                    eventsHtml += `<div class="calendar-event-tag ${tagCl}" title="${emp.prenom} ${emp.nom}: ${c.type}">
+                        ${emp.prenom.charAt(0)}. ${emp.nom} (${c.type})
+                    </div>`;
+                }
+            });
+        });
+
+        daysHtml += `
+            <div class="calendar-day-cell" style="${bgStyle}">
+                <div class="calendar-day-number" style="${isHoli || isWeekend ? 'color:#ef4444; font-weight:800;' : ''}">${day}${isHoli ? ' 🎉' : ''}</div>
+                ${eventsHtml}
+            </div>
+        `;
+    }
+
+    daysHtml += `</div>`;
+    monthBox.innerHTML = headerHtml + daysHtml;
+
+    const printContent = `
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:3px solid #004d99; padding-bottom:8px; margin-bottom:12px;">
+            <div style="font-size:22px; font-weight:900; color:#004d99;">PAPREC</div>
+            <div style="text-align:right;">
+                <strong>EXPLOITATION — PLANNING DU MOIS DE ${monthNames[monthIdx].toUpperCase()} ${yearNum}</strong><br>
+                <span>${rhSettings.agenceNom}</span>
+            </div>
+        </div>
+        <div style="margin-top:10px;">${monthBox.outerHTML}</div>
+    `;
+
+    printCleanContent(printContent, `Planning Congés ${monthNames[monthIdx]} ${yearNum} Paprec`, true);
 }
 
 function printCongesCalendarClean() {

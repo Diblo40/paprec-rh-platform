@@ -208,8 +208,8 @@
                     <div style="display: flex; gap: 10px;">
                         <button class="btn btn-outline btn-sm" onclick="changeCongesQuarter(-1)"><i class="fa-solid fa-chevron-left"></i> Trimestre Précédent</button>
                         <button class="btn btn-outline btn-sm" onclick="changeCongesQuarter(1)">Trimestre Suivant <i class="fa-solid fa-chevron-right"></i></button>
-                        <button class="btn btn-primary btn-sm" onclick="printCongesCalendarClean()">
-                            <i class="fa-solid fa-print"></i> Imprimer le Planning 3 Mois
+                        <button class="btn btn-primary btn-sm" onclick="openPrintCongesModal()">
+                            <i class="fa-solid fa-print"></i> Imprimer le Planning
                         </button>
                     </div>
                 </div>
@@ -939,6 +939,35 @@
         </div>
     </div>
 
+    <!-- MODAL IMPRESSION PLANNING CONGÉS PAR MOIS -->
+    <div class="modal-overlay" id="modal-print-conges">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-print"></i> Imprimer le Planning des Congés</h3>
+                <button class="btn-icon btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" style="line-height: 1.5; font-size: 0.9rem;">
+                <p style="margin-bottom: 16px; color: var(--text-muted);">
+                    Choisissez le mois spécifique ou la période complète que vous souhaitez imprimer au format paysage HD.
+                </p>
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label for="print-conges-month-select" style="font-weight: 700; display: block; margin-bottom: 8px;">Période / Mois à imprimer :</label>
+                    <select id="print-conges-month-select" class="form-select" style="width: 100%; font-size: 1rem; font-weight: 700;">
+                        <!-- Injected by JS -->
+                    </select>
+                </div>
+                <div style="background: var(--primary-light); border-radius: 8px; padding: 12px; font-size: 0.82rem; color: var(--primary); display: flex; gap: 10px; align-items: center;">
+                    <i class="fa-solid fa-circle-info" style="font-size: 1.2rem;"></i>
+                    <span>Le décompte des congés exclut automatiquement les samedis, dimanches et jours fériés légaux français.</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline btn-close-modal">Annuler</button>
+                <button class="btn btn-primary" onclick="executePrintCongesMonth()"><i class="fa-solid fa-print"></i> Lancer l'Impression</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL IMPRESSIONS LÉGALES RH (APERÇU PAYSAGE) -->
     <div class="modal-overlay" id="modal-printable-doc">
         <div class="modal-content" style="max-width: 850px;">
@@ -1183,7 +1212,7 @@
     </div>
 
     <!-- Application JS Logic -->
-    <script src="data.js?v=20260729-v10"></script>
-    <script src="app.js?v=20260729-v10"></script>
+    <script src="data.js?v=20260729-v11"></script>
+    <script src="app.js?v=20260729-v11"></script>
 </body>
 </html>
