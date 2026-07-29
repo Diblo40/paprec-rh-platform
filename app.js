@@ -395,7 +395,7 @@ function openProfileModal(empId) {
         if (_el_23) _el_23.textContent = 'Non renseigné';
     }
 
-    const leaveStats = calculateEmployeeLeaveStats(emp, '2026');
+    const leaveStats = calculateEmployeeLeaveStats(emp, 'all');
     const _el_solde_cp = document.getElementById('profile-solde-cp'); if (_el_solde_cp) _el_solde_cp.innerHTML = `
         <span style="font-size: 1.3rem; font-weight:800; color:var(--primary);">${leaveStats.cpSolde} j restants</span>
         <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Acquis: ${leaveStats.cpAcquis} j | Pris: ${leaveStats.cpPris} j</div>
@@ -425,6 +425,35 @@ function openProfileModal(empId) {
         });
         fHtml += `</div>`;
         formContainer.innerHTML = fHtml;
+    }
+
+    const congesContainer = document.getElementById('profile-conges-container');
+    if (congesContainer) {
+        const cList = emp.conges || [];
+        if (cList.length === 0) {
+            congesContainer.innerHTML = `<p style="font-size:0.82rem; color:var(--text-muted);">Aucun congé enregistré pour ce salarié.</p>`;
+        } else {
+            let cHtml = `<div style="display:flex; flex-direction:column; gap:6px;">`;
+            cList.forEach(c => {
+                let badgeCl = 'badge-primary';
+                if (c.type === 'RTT') badgeCl = 'badge-secondary';
+                if (c.type === 'Maladie' || c.type === 'AT') badgeCl = 'badge-danger';
+                if (c.type === 'SansSolde') badgeCl = 'badge-warning';
+
+                const days = calcDaysBetween(c.debut, c.fin);
+                cHtml += `
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.82rem; background:white; padding:6px 10px; border-radius:6px; border:1px solid var(--border-color);">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span class="badge ${badgeCl}">${c.type} (${days}j)</span>
+                            <strong>Du ${formatDateFR(c.debut)} au ${formatDateFR(c.fin)}</strong>
+                        </div>
+                        <span style="color:var(--text-muted); font-size:0.75rem;">${c.motif || ''}</span>
+                    </div>
+                `;
+            });
+            cHtml += `</div>`;
+            congesContainer.innerHTML = cHtml;
+        }
     }
 
     renderEmployeeFiles(emp);
