@@ -758,7 +758,17 @@ function renderCongesTable() {
 
 function renderCongesCalendar3Months() {
     const container = document.getElementById('conges-3months-grid');
+    if (!container) return;
     container.innerHTML = '';
+
+    const yearVal = document.getElementById('conges-year-select')?.value;
+    if (yearVal && yearVal !== 'all') {
+        const pYear = parseInt(yearVal);
+        if (!isNaN(pYear) && pYear !== currentCongesStartYear) {
+            currentCongesStartYear = pYear;
+            currentCongesStartMonth = 5; // Juin (start of exercise)
+        }
+    }
 
     const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 
@@ -962,10 +972,25 @@ function renderPlanning() {
 }
 
 function getDateForWeekDay(weekKey, dayIndex) {
-    const year = parseInt(weekKey.substring(0, 4)) || 2026;
-    const week = parseInt(weekKey.substring(6)) || 30;
-    const day = 20 + dayIndex;
-    return `${year}-07-${String(day).padStart(2, '0')}`;
+    if (!weekKey || !weekKey.includes('-W')) {
+        const now = new Date();
+        const year = now.getFullYear();
+        return `${year}-07-${String(20 + dayIndex).padStart(2, '0')}`;
+    }
+    
+    const parts = weekKey.split('-W');
+    const year = parseInt(parts[0]);
+    const week = parseInt(parts[1]);
+    
+    // ISO 8601 week calculation
+    const simple = new Date(Date.UTC(year, 0, 4));
+    const dayOfWeek = simple.getUTCDay() || 7;
+    const mondayWeek1 = new Date(simple.getTime() - (dayOfWeek - 1) * 86400000);
+    
+    const targetMonday = new Date(mondayWeek1.getTime() + (week - 1) * 7 * 86400000);
+    const targetDay = new Date(targetMonday.getTime() + dayIndex * 86400000);
+    
+    return targetDay.toISOString().split('T')[0];
 }
 
 function renderPlanningTable() {
