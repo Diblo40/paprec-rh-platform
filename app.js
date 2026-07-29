@@ -814,6 +814,42 @@ function renderCongesTable() {
     });
 }
 
+function getMetierColorInfo(emp) {
+    const metier = (emp.metier || emp.role || '').toLowerCase();
+    const role = (emp.role || '').toLowerCase();
+    const combined = `${metier} ${role}`;
+
+    if (combined.includes('chauffeur') || combined.includes('conducteur')) {
+        return {
+            bg: '#dbeafe',
+            color: '#1e3a8a',
+            border: '#2563eb',
+            name: 'Chauffeurs'
+        };
+    } else if (combined.includes('dalle') || combined.includes('tri') || combined.includes('exploitation') || combined.includes('cariste') || combined.includes('operator') || combined.includes('opérateur')) {
+        return {
+            bg: '#d1fae5',
+            color: '#064e3b',
+            border: '#059669',
+            name: 'Dalles & Tri'
+        };
+    } else if (combined.includes('bureau') || combined.includes('secretariat') || combined.includes('secrétariat') || combined.includes('bascule') || combined.includes('accueil') || combined.includes('rh') || combined.includes('qse')) {
+        return {
+            bg: '#ede9fe',
+            color: '#4c1d95',
+            border: '#7c3aed',
+            name: 'Bureaux & Secrétariat'
+        };
+    } else {
+        return {
+            bg: '#fef3c7',
+            color: '#78350f',
+            border: '#d97706',
+            name: 'Maintenance & Autres'
+        };
+    }
+}
+
 function renderCongesCalendar3Months() {
     const container = document.getElementById('conges-3months-grid');
     if (!container) return;
@@ -876,11 +912,10 @@ function renderCongesCalendar3Months() {
             employees.forEach(emp => {
                 (emp.conges || []).forEach(c => {
                     if (c.debut && c.fin && dayStr >= c.debut && dayStr <= c.fin) {
-                        let tagCl = 'cp';
-                        if (c.type === 'RTT') tagCl = 'rtt';
-                        if (c.type === 'Maladie') tagCl = 'maladie';
+                        const mInfo = getMetierColorInfo(emp);
+                        const tagStyle = `background: ${mInfo.bg}; color: ${mInfo.color}; border-left: 3px solid ${mInfo.border}; padding: 2px 4px; font-weight: 700; border-radius: 3px; margin-bottom: 2px; font-size: 0.72rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;`;
 
-                        eventsHtml += `<div class="calendar-event-tag ${tagCl}" title="${emp.prenom} ${emp.nom}: ${c.type}">
+                        eventsHtml += `<div class="calendar-event-tag" style="${tagStyle}" title="${emp.prenom} ${emp.nom} (${emp.metier || emp.role}): ${c.type}">
                             ${emp.prenom.charAt(0)}. ${emp.nom} (${c.type})
                         </div>`;
                     }
@@ -921,62 +956,61 @@ function openPrintCongesModal() {
 
     const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 
-    // Option 1: Current Quarter (3 Months)
-    const optAll = document.createElement('option');
-    optAll.value = 'all-3';
-    optAll.textContent = `📋 Trimestre Complet en cours (${monthNames[currentCongesStartMonth]} - ${monthNames[(currentCongesStartMonth + 2) % 12]} ${currentCongesStartYear})`;
-    sel.appendChild(optAll);
+    // 1. Trimestre complet (3 Mois)
+    const opt3 = document.createElement('option');
+    opt3.value = 'all-3';
+    opt3.textContent = `📋 Trimestre Complet (3 Mois : ${monthNames[currentCongesStartMonth]} - ${monthNames[(currentCongesStartMonth + 2) % 12]} ${currentCongesStartYear})`;
+    sel.appendChild(opt3);
 
-    // Option 2: Individual months of current rendered quarter
-    for (let mOffset = 0; mOffset < 3; mOffset++) {
-        let mIdx = currentCongesStartMonth + mOffset;
-        let yNum = currentCongesStartYear;
-        if (mIdx > 11) {
-            mIdx -= 12;
-            yNum++;
-        }
-        const opt = document.createElement('option');
-        opt.value = `${mIdx}_${yNum}`;
-        opt.textContent = `📅 Mois de ${monthNames[mIdx]} ${yNum}`;
-        if (mOffset === 0) opt.selected = true; // Default to 1st month
-        sel.appendChild(opt);
+    // 2. Options 2 Mois (Sélection 2 Mois Consécutifs)
+    const opt2Group = document.createElement('option');
+    opt2Group.disabled = true;
+    opt2Group.textContent = `────── Sélections sur 2 Mois ──────`;
+    sel.appendChild(opt2Group);
+
+    for (let mOffset = 0; mOffset < 2; mOffset++) {
+        let m1Idx = currentCongesStartMonth + mOffset;
+        let y1Num = currentCongesStartYear;
+        if (m1Idx > 11) { m1Idx -= 12; y1Num++; }
+
+        let m2Idx = m1Idx + 1;
+        let y2Num = y1Num;
+        if (m2Idx > 11) { m2Idx -= 12; y2Num++; }
+
+        const opt2 = document.createElement('option');
+        opt2.value = `2months_${m1Idx}_${y1Num}_${m2Idx}_${y2Num}`;
+        opt2.textContent = `📅 2 Mois : ${monthNames[m1Idx]} ${y1Num} & ${monthNames[m2Idx]} ${y2Num}`;
+        if (mOffset === 0) opt2.selected = true; // Default selected 2 months!
+        sel.appendChild(opt2);
     }
 
-    // Divider
-    const optDiv = document.createElement('option');
-    optDiv.disabled = true;
-    optDiv.textContent = `────── Tous les mois de l'année ${currentCongesStartYear} ──────`;
-    sel.appendChild(optDiv);
+    // Additional 2 month options for the year
+    for (let m = 0; m < 11; m += 2) {
+        let m1 = m;
+        let m2 = m + 1;
+        const opt2 = document.createElement('option');
+        opt2.value = `2months_${m1}_${currentCongesStartYear}_${m2}_${currentCongesStartYear}`;
+        opt2.textContent = `📅 2 Mois : ${monthNames[m1]} & ${monthNames[m2]} ${currentCongesStartYear}`;
+        sel.appendChild(opt2);
+    }
 
-    // All months of the year
+    // 3. Options 1 Mois Individuel
+    const opt1Group = document.createElement('option');
+    opt1Group.disabled = true;
+    opt1Group.textContent = `────── Sélections sur 1 Mois ──────`;
+    sel.appendChild(opt1Group);
+
     for (let m = 0; m < 12; m++) {
         const opt = document.createElement('option');
-        opt.value = `${m}_${currentCongesStartYear}`;
-        opt.textContent = `📅 ${monthNames[m]} ${currentCongesStartYear}`;
+        opt.value = `1month_${m}_${currentCongesStartYear}`;
+        opt.textContent = `📅 1 Mois : ${monthNames[m]} ${currentCongesStartYear}`;
         sel.appendChild(opt);
     }
 
     document.getElementById('modal-print-conges')?.classList.add('active');
 }
 
-function executePrintCongesMonth() {
-    const selVal = document.getElementById('print-conges-month-select')?.value;
-    closeModals();
-
-    if (!selVal) return;
-
-    if (selVal === 'all-3') {
-        printCongesCalendarClean();
-        return;
-    }
-
-    const [monthIdxStr, yearStr] = selVal.split('_');
-    const monthIdx = parseInt(monthIdxStr);
-    const yearNum = parseInt(yearStr);
-
-    const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
-
-    // Render single month html for print
+function buildSingleMonthHtml(monthIdx, yearNum, monthNames) {
     const monthBox = document.createElement('div');
     monthBox.style.border = '1px solid var(--border-color)';
     monthBox.style.borderRadius = '10px';
@@ -984,7 +1018,7 @@ function executePrintCongesMonth() {
     monthBox.style.background = '#ffffff';
 
     const headerHtml = `
-        <div style="background: var(--primary-light); color: var(--primary); font-weight:700; padding: 10px 16px; font-size:1.1rem; border-bottom: 1px solid var(--border-color); text-align:center;">
+        <div style="background: var(--primary-light); color: var(--primary); font-weight:700; padding: 8px 14px; font-size:1.05rem; border-bottom: 1px solid var(--border-color); text-align:center;">
             Planning des Congés & Absences — ${monthNames[monthIdx]} ${yearNum}
         </div>
         <div class="calendar-grid-header">
@@ -1017,11 +1051,10 @@ function executePrintCongesMonth() {
         employees.forEach(emp => {
             (emp.conges || []).forEach(c => {
                 if (c.debut && c.fin && dayStr >= c.debut && dayStr <= c.fin) {
-                    let tagCl = 'cp';
-                    if (c.type === 'RTT') tagCl = 'rtt';
-                    if (c.type === 'Maladie' || c.type === 'AT') tagCl = 'maladie';
+                    const mInfo = getMetierColorInfo(emp);
+                    const tagStyle = `background: ${mInfo.bg}; color: ${mInfo.color}; border-left: 3px solid ${mInfo.border}; padding: 2px 4px; font-weight: 700; border-radius: 3px; margin-bottom: 2px; font-size: 0.72rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;`;
 
-                    eventsHtml += `<div class="calendar-event-tag ${tagCl}" title="${emp.prenom} ${emp.nom}: ${c.type}">
+                    eventsHtml += `<div class="calendar-event-tag" style="${tagStyle}" title="${emp.prenom} ${emp.nom} (${emp.metier || emp.role}): ${c.type}">
                         ${emp.prenom.charAt(0)}. ${emp.nom} (${c.type})
                     </div>`;
                 }
@@ -1038,19 +1071,80 @@ function executePrintCongesMonth() {
 
     daysHtml += `</div>`;
     monthBox.innerHTML = headerHtml + daysHtml;
+    return monthBox.outerHTML;
+}
 
-    const printContent = `
-        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:3px solid #004d99; padding-bottom:8px; margin-bottom:12px;">
-            <div style="font-size:22px; font-weight:900; color:#004d99;">PAPREC</div>
-            <div style="text-align:right;">
-                <strong>EXPLOITATION — PLANNING DU MOIS DE ${monthNames[monthIdx].toUpperCase()} ${yearNum}</strong><br>
-                <span>${rhSettings.agenceNom}</span>
-            </div>
+function executePrintCongesMonth() {
+    const selVal = document.getElementById('print-conges-month-select')?.value;
+    closeModals();
+
+    if (!selVal) return;
+
+    if (selVal === 'all-3') {
+        printCongesCalendarClean();
+        return;
+    }
+
+    const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+
+    // Legend bar for print
+    const printLegendHtml = `
+        <div style="display: flex; gap: 12px; margin-bottom: 12px; font-size: 9px; font-weight: 700; background: #f8fafc; padding: 4px 8px; border-radius: 4px; border: 1px solid #cbd5e1; align-items: center;">
+            <span style="color: #004d99; font-weight: 800;">Légende Métiers :</span>
+            <span style="background: #dbeafe; color: #1e3a8a; padding: 1px 6px; border-radius: 3px; border-left: 3px solid #2563eb;">Chauffeurs</span>
+            <span style="background: #d1fae5; color: #064e3b; padding: 1px 6px; border-radius: 3px; border-left: 3px solid #059669;">Dalles & Tri</span>
+            <span style="background: #ede9fe; color: #4c1d95; padding: 1px 6px; border-radius: 3px; border-left: 3px solid #7c3aed;">Bureaux</span>
+            <span style="background: #fef3c7; color: #78350f; padding: 1px 6px; border-radius: 3px; border-left: 3px solid #d97706;">Maintenance & Autres</span>
         </div>
-        <div style="margin-top:10px;">${monthBox.outerHTML}</div>
     `;
 
-    printCleanContent(printContent, `Planning Congés ${monthNames[monthIdx]} ${yearNum} Paprec`, true);
+    if (selVal.startsWith('2months_')) {
+        const parts = selVal.split('_');
+        const m1Idx = parseInt(parts[1]);
+        const y1Num = parseInt(parts[2]);
+        const m2Idx = parseInt(parts[3]);
+        const y2Num = parseInt(parts[4]);
+
+        const htmlM1 = buildSingleMonthHtml(m1Idx, y1Num, monthNames);
+        const htmlM2 = buildSingleMonthHtml(m2Idx, y2Num, monthNames);
+
+        const printContent = `
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:3px solid #004d99; padding-bottom:6px; margin-bottom:10px;">
+                <div style="font-size:22px; font-weight:900; color:#004d99;">PAPREC</div>
+                <div style="text-align:right;">
+                    <strong>EXPLOITATION — PLANNING DE CONGÉS 2 MOIS (${monthNames[m1Idx].toUpperCase()} & ${monthNames[m2Idx].toUpperCase()} ${y1Num})</strong><br>
+                    <span>${rhSettings.agenceNom}</span>
+                </div>
+            </div>
+            ${printLegendHtml}
+            <div style="display:flex; flex-direction:column; gap:16px;">
+                ${htmlM1}
+                ${htmlM2}
+            </div>
+        `;
+
+        printCleanContent(printContent, `Planning Congés ${monthNames[m1Idx]}-${monthNames[m2Idx]} ${y1Num} Paprec`, true);
+    } else if (selVal.startsWith('1month_')) {
+        const parts = selVal.split('_');
+        const monthIdx = parseInt(parts[1]);
+        const yearNum = parseInt(parts[2]);
+
+        const htmlM = buildSingleMonthHtml(monthIdx, yearNum, monthNames);
+
+        const printContent = `
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:3px solid #004d99; padding-bottom:6px; margin-bottom:10px;">
+                <div style="font-size:22px; font-weight:900; color:#004d99;">PAPREC</div>
+                <div style="text-align:right;">
+                    <strong>EXPLOITATION — PLANNING DU MOIS DE ${monthNames[monthIdx].toUpperCase()} ${yearNum}</strong><br>
+                    <span>${rhSettings.agenceNom}</span>
+                </div>
+            </div>
+            ${printLegendHtml}
+            <div style="margin-top:8px;">${htmlM}</div>
+        `;
+
+        printCleanContent(printContent, `Planning Congés ${monthNames[monthIdx]} ${yearNum} Paprec`, true);
+    }
 }
 
 function printCongesCalendarClean() {
