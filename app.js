@@ -111,29 +111,34 @@ function printCleanContent(htmlContent, documentTitle = 'Document RH Paprec', is
                     size: ${isLandscape ? 'landscape' : 'portrait'};
                     margin: 0.4cm;
                 }
-                * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; }
+                * {
+                    box-sizing: border-box;
+                    margin: 0;
+                    padding: 0;
+                    font-family: Arial, Helvetica, sans-serif;
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                    color-adjust: exact !important;
+                }
                 html, body { height: 100%; background: #ffffff; color: #0f172a; padding: 4px; font-size: 10px; line-height: 1.22; }
                 .de39-header-table { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
                 .de39-header-table td { border: 1px solid #004d99; padding: 3px 6px; font-size: 9.5px; }
                 .de39-table { width: 100%; border-collapse: collapse; margin: 4px 0; }
                 .de39-table th, .de39-table td { border: 1px solid #cbd5e1; padding: 3px 5px; text-align: left; vertical-align: top; font-size: 9.5px; }
-                .de39-table th { background: #e6f0fa; color: #004d99; font-weight: 800; text-transform: uppercase; font-size: 9.5px; }
-                .de39-section-hdr { background: #f1f5f9; color: #004d99; font-weight: 800; padding: 3px 5px; font-size: 10px; border: 1px solid #cbd5e1; }
+                .de39-table th { background: #e6f0fa !important; color: #004d99 !important; font-weight: 800; text-transform: uppercase; font-size: 9.5px; }
+                .de39-section-hdr { background: #f1f5f9 !important; color: #004d99 !important; font-weight: 800; padding: 3px 5px; font-size: 10px; border: 1px solid #cbd5e1; }
                 ul { margin-top: 1px; margin-bottom: 1px; padding-left: 14px; }
                 li { margin-bottom: 1px; }
                 .print-signatures { display: flex; justify-content: space-between; margin-top: 8px; padding-top: 4px; }
                 .print-sig-box { width: 45%; border-top: 1px solid #94a3b8; padding-top: 3px; font-size: 9.5px; font-weight: 600; color: #475569; }
                 .badge { padding: 2px 6px; border-radius: 3px; font-size: 9px; font-weight: 700; display: inline-block; }
-                .badge-primary { background: #e6f0fa; color: #004d99; }
-                .badge-secondary { background: #d1fae5; color: #047857; }
-                .calendar-grid-header { display: grid; grid-template-columns: repeat(7, 1fr); background: #f1f5f9; font-weight: 700; text-align: center; padding: 4px 0; border: 1px solid #cbd5e1; }
+                .badge-primary { background: #e6f0fa !important; color: #004d99 !important; }
+                .badge-secondary { background: #d1fae5 !important; color: #047857 !important; }
+                .calendar-grid-header { display: grid; grid-template-columns: repeat(7, 1fr); background: #f1f5f9 !important; font-weight: 700; text-align: center; padding: 4px 0; border: 1px solid #cbd5e1; }
                 .calendar-grid-days { display: grid; grid-template-columns: repeat(7, 1fr); }
                 .calendar-day-cell { border: 1px solid #cbd5e1; min-height: 42px; padding: 3px; background: #ffffff; font-size: 9.5px; }
                 .calendar-day-number { font-weight: 700; color: #64748b; margin-bottom: 1px; }
-                .calendar-event-tag { padding: 1px 3px; border-radius: 2px; font-size: 9px; font-weight: 700; margin-bottom: 1px; }
-                .calendar-event-tag.cp { background: #e6f0fa; color: #004d99; }
-                .calendar-event-tag.rtt { background: #d1fae5; color: #047857; }
-                .calendar-event-tag.maladie { background: #fee2e2; color: #b91c1c; }
+                .calendar-event-tag { padding: 2px 5px; border-radius: 4px; font-size: 9px; font-weight: 700; margin-bottom: 2px; display: block; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             </style>
         </head>
         <body>
@@ -913,7 +918,7 @@ function renderCongesCalendar3Months() {
                 (emp.conges || []).forEach(c => {
                     if (c.debut && c.fin && dayStr >= c.debut && dayStr <= c.fin) {
                         const mInfo = getMetierColorInfo(emp);
-                        const tagStyle = `background: ${mInfo.bg}; color: ${mInfo.color}; border-left: 3px solid ${mInfo.border}; padding: 2px 4px; font-weight: 700; border-radius: 3px; margin-bottom: 2px; font-size: 0.72rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;`;
+                        const tagStyle = `background: ${mInfo.bg} !important; color: ${mInfo.color} !important; border-left: 4px solid ${mInfo.border} !important; padding: 3px 6px; font-weight: 700; border-radius: 4px; margin-bottom: 3px; font-size: 0.74rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;`;
 
                         eventsHtml += `<div class="calendar-event-tag" style="${tagStyle}" title="${emp.prenom} ${emp.nom} (${emp.metier || emp.role}): ${c.type}">
                             ${emp.prenom.charAt(0)}. ${emp.nom} (${c.type})
@@ -1053,7 +1058,7 @@ function buildSingleMonthHtml(monthIdx, yearNum, monthNames) {
             (emp.conges || []).forEach(c => {
                 if (c.debut && c.fin && dayStr >= c.debut && dayStr <= c.fin) {
                     const mInfo = getMetierColorInfo(emp);
-                    const tagStyle = `background: ${mInfo.bg}; color: ${mInfo.color}; border-left: 3px solid ${mInfo.border}; padding: 2px 4px; font-weight: 700; border-radius: 3px; margin-bottom: 2px; font-size: 0.72rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;`;
+                    const tagStyle = `background: ${mInfo.bg} !important; color: ${mInfo.color} !important; border-left: 4px solid ${mInfo.border} !important; padding: 3px 6px; font-weight: 700; border-radius: 4px; margin-bottom: 3px; font-size: 0.74rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;`;
 
                     eventsHtml += `<div class="calendar-event-tag" style="${tagStyle}" title="${emp.prenom} ${emp.nom} (${emp.metier || emp.role}): ${c.type}">
                         ${emp.prenom.charAt(0)}. ${emp.nom} (${c.type})
