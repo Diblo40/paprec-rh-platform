@@ -1,7 +1,18 @@
 // Paprec RH Platform — Supabase PostgreSQL = Unique Source de Vérité
-// Version corrigée : aucune donnée métier en localStorage
-
-// Complete Revamped Application Logic for Paprec RH Platform & Formations QSE
+// Helper to sanitize clean role/poste name
+function getCleanRole(emp) {
+    if (!emp) return '-';
+    let r = typeof emp === 'string' ? emp : (emp.role || emp.poste || emp.metier || '-');
+    if (typeof r === 'string' && r.trim().startsWith('{')) {
+        try {
+            const parsed = JSON.parse(r);
+            return parsed.poste || parsed.role || parsed.metier || parsed.nom || '-';
+        } catch (e) {
+            return r;
+        }
+    }
+    return r;
+}
 
 const STORAGE_EMP_KEY = 'paprec_rh_employees_v10';
 const STORAGE_PLANNING_KEY = 'paprec_rh_planning_v10';
