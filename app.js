@@ -386,7 +386,7 @@ function renderPersonnel() {
             <div class="emp-info-list">
                 <div class="emp-info-item">
                     <span>Poste / Rôle:</span>
-                    <span>${emp.role || '-'}</span>
+                    <span>${getCleanRole(emp)}</span>
                 </div>
                 <div class="emp-info-item">
                     <span>Contrat / Statut:</span>
