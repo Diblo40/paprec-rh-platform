@@ -930,33 +930,39 @@ function renderCongesTable() {
 }
 
 function getMetierColorInfo(emp) {
-    const metier = (emp.metier || emp.role || '').toLowerCase();
-    const role = (emp.role || '').toLowerCase();
-    const combined = `${metier} ${role}`;
+    const metier = (emp.metier || '').toLowerCase();
+    const role = (emp.role || emp.poste || '').toLowerCase();
+    const combined = `${metier} ${role}`.trim();
 
-    // Check Bureaux / Secrétariat / Bascule FIRST so office employees matching 'exploitation' aren't misclassified as Dalles & Tri
-    if (combined.includes('bureau') || combined.includes('secretariat') || combined.includes('secrétariat') || combined.includes('bascule') || combined.includes('accueil') || combined.includes('rh') || combined.includes('qse') || combined.includes('admin') || combined.includes('comptab') || combined.includes('assistante')) {
+    // 1. Bureaux / Secrétariat / Bascule / RH / QSE => Violet
+    if (['bureau', 'secretariat', 'secrétariat', 'bascule', 'accueil', 'rh', 'qse', 'admin', 'comptab', 'assistante'].some(k => combined.includes(k))) {
         return {
             bg: '#ede9fe',
             color: '#4c1d95',
             border: '#7c3aed',
             name: 'Bureaux & Secrétariat'
         };
-    } else if (combined.includes('chauffeur') || combined.includes('conducteur') || combined.includes('spl') || combined.includes('pl')) {
+    }
+    // 2. Chauffeurs & Conducteurs => Orange (utilise regex \\b(spl|pl)\\b pour éviter de matcher exPLoitation!)
+    else if (combined.includes('chauffeur') || combined.includes('chaffeur') || combined.includes('conducteur') || combined.includes('toupie') || /\b(spl|pl)\b/.test(combined)) {
         return {
             bg: '#ffedd5',
             color: '#9a3412',
             border: '#ea580c',
             name: 'Chauffeurs & Conducteurs'
         };
-    } else if (combined.includes('dalle') || combined.includes('tri') || combined.includes('exploitation') || combined.includes('cariste') || combined.includes('operator') || combined.includes('opérateur')) {
+    }
+    // 3. Dalles & Tri / Exploitation => Vert
+    else if (['dalle', 'tri', 'exploitation', 'cariste', 'operator', 'opérateur', 'rippeur', 'manutention'].some(k => combined.includes(k))) {
         return {
             bg: '#d1fae5',
             color: '#064e3b',
             border: '#059669',
             name: 'Dalles & Tri'
         };
-    } else {
+    }
+    // 4. Fallback => Bleu (Maintenance & Autres)
+    else {
         return {
             bg: '#e0f2fe',
             color: '#0369a1',
