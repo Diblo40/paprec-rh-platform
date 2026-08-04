@@ -934,7 +934,15 @@ function getMetierColorInfo(emp) {
     const role = (emp.role || '').toLowerCase();
     const combined = `${metier} ${role}`;
 
-    if (combined.includes('chauffeur') || combined.includes('conducteur')) {
+    // Check Bureaux / Secrétariat / Bascule FIRST so office employees matching 'exploitation' aren't misclassified as Dalles & Tri
+    if (combined.includes('bureau') || combined.includes('secretariat') || combined.includes('secrétariat') || combined.includes('bascule') || combined.includes('accueil') || combined.includes('rh') || combined.includes('qse') || combined.includes('admin') || combined.includes('comptab') || combined.includes('assistante')) {
+        return {
+            bg: '#ede9fe',
+            color: '#4c1d95',
+            border: '#7c3aed',
+            name: 'Bureaux & Secrétariat'
+        };
+    } else if (combined.includes('chauffeur') || combined.includes('conducteur') || combined.includes('spl') || combined.includes('pl')) {
         return {
             bg: '#ffedd5',
             color: '#9a3412',
@@ -947,13 +955,6 @@ function getMetierColorInfo(emp) {
             color: '#064e3b',
             border: '#059669',
             name: 'Dalles & Tri'
-        };
-    } else if (combined.includes('bureau') || combined.includes('secretariat') || combined.includes('secrétariat') || combined.includes('bascule') || combined.includes('accueil') || combined.includes('rh') || combined.includes('qse')) {
-        return {
-            bg: '#ede9fe',
-            color: '#4c1d95',
-            border: '#7c3aed',
-            name: 'Bureaux & Secrétariat'
         };
     } else {
         return {
@@ -1045,10 +1046,10 @@ function renderCongesCalendar3Months() {
             employees.forEach(emp => {
                 (emp.conges || []).forEach(c => {
                     if (c.debut && c.fin && dayStr >= c.debut && dayStr <= c.fin) {
-                        const cInfo = getCongeTypeColorInfo(c.type);
-                        const tagStyle = `background: ${cInfo.bg} !important; color: ${cInfo.color} !important; border-left: 4px solid ${cInfo.border} !important; padding: 3px 6px; font-weight: 700; border-radius: 4px; margin-bottom: 3px; font-size: 0.74rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;`;
+                        const mInfo = getMetierColorInfo(emp);
+                        const tagStyle = `background: ${mInfo.bg} !important; color: ${mInfo.color} !important; border-left: 4px solid ${mInfo.border} !important; padding: 3px 6px; font-weight: 700; border-radius: 4px; margin-bottom: 3px; font-size: 0.74rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;`;
 
-                        eventsHtml += `<div class="calendar-event-tag" style="${tagStyle}" title="${emp.prenom} ${emp.nom} (${emp.metier || emp.role}): ${cInfo.label}">
+                        eventsHtml += `<div class="calendar-event-tag" style="${tagStyle}" title="${emp.prenom} ${emp.nom} (${emp.metier || emp.role}): ${c.type}">
                             ${emp.prenom.charAt(0)}. ${emp.nom} (${c.type})
                         </div>`;
                     }
@@ -1185,10 +1186,10 @@ function buildSingleMonthHtml(monthIdx, yearNum, monthNames) {
         employees.forEach(emp => {
             (emp.conges || []).forEach(c => {
                 if (c.debut && c.fin && dayStr >= c.debut && dayStr <= c.fin) {
-                    const cInfo = getCongeTypeColorInfo(c.type);
-                    const tagStyle = `background: ${cInfo.bg} !important; color: ${cInfo.color} !important; border-left: 4px solid ${cInfo.border} !important; padding: 3px 6px; font-weight: 700; border-radius: 4px; margin-bottom: 3px; font-size: 0.74rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;`;
+                    const mInfo = getMetierColorInfo(emp);
+                    const tagStyle = `background: ${mInfo.bg} !important; color: ${mInfo.color} !important; border-left: 4px solid ${mInfo.border} !important; padding: 3px 6px; font-weight: 700; border-radius: 4px; margin-bottom: 3px; font-size: 0.74rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;`;
 
-                    eventsHtml += `<div class="calendar-event-tag" style="${tagStyle}" title="${emp.prenom} ${emp.nom} (${emp.metier || emp.role}): ${cInfo.label}">
+                    eventsHtml += `<div class="calendar-event-tag" style="${tagStyle}" title="${emp.prenom} ${emp.nom} (${emp.metier || emp.role}): ${c.type}">
                         ${emp.prenom.charAt(0)}. ${emp.nom} (${c.type})
                     </div>`;
                 }
