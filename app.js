@@ -32,12 +32,35 @@ let currentEditingEmpId = null;
 let activePlanningCell = null;
 let activeInfoFormation = null;
 
-// Calendar View State (3 Months)
-let currentCongesStartMonth = 6; // 0-indexed: 6 = Juillet
-let currentCongesStartYear = 2026;
+// Calendar View State (3 Months) — dynamique basé sur la date actuelle
+let currentCongesStartMonth = new Date().getMonth();
+let currentCongesStartYear = new Date().getFullYear();
+
+// Helpers pour gestion dynamique des dates et exercices
+function getCurrentISOWeek(date = new Date()) {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+}
+
+function getCurrentExerciseYear() {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth(); // 0 = Jan, 5 = June
+    return currentMonth >= 5 ? currentYear : currentYear - 1;
+}
 
 // Init State
 function init() {
+    // Set dynamic defaults for date pickers
+    const weekPicker = document.getElementById('planning-week-picker');
+    if (weekPicker) weekPicker.value = getCurrentISOWeek();
+
+    const yearSelect = document.getElementById('conges-year-select');
+    if (yearSelect) yearSelect.value = getCurrentExerciseYear().toString();
     // 100% Supabase PostgreSQL Source of Truth - Zero local storage contamination
     employees = [];
 
@@ -648,7 +671,7 @@ function onEmployeeContratOrCatChange() {
 }
 
 function calculateEmployeeLeaveStats(emp, year = null) {
-    const targetYear = (year && year !== 'all') ? year : new Date().getFullYear().toString();
+    const exYearStr = (year && year !== 'all') ? year : getCurrentExerciseYear().toString();
     const isInterim = (emp.contrat === 'Intérim' || emp.categorie === 'Intérimaire');
     const cpAnciennete = (isInterim) ? 0 : (emp.cpAnciennete !== undefined ? parseFloat(emp.cpAnciennete) : 0);
     const cpAcquis = (isInterim) ? 0 : (emp.cpAcquis !== undefined ? parseFloat(emp.cpAcquis) : 25);
@@ -660,9 +683,13 @@ function calculateEmployeeLeaveStats(emp, year = null) {
     let cpPris = 0;
     let rttPris = 0;
 
+    const exYearInt = parseInt(exYearStr);
+    const startDate = `${exYearInt}-06-01`;
+    const endDate = `${exYearInt + 1}-05-31`;
+
     (emp.conges || []).forEach(c => {
         if ((c.statut === 'Validé' || !c.statut) && c.debut && c.fin) {
-            if (year === 'all' || !targetYear || c.debut.startsWith(targetYear)) {
+            if (year === 'all' || (c.debut >= startDate && c.debut <= endDate)) {
                 const days = calcDaysBetween(c.debut, c.fin);
                 if (c.type === 'CP') cpPris += days;
                 if (c.type === 'RTT') rttPris += days;
@@ -825,9 +852,13 @@ function renderCongesTable() {
         tr.className = 'clickable-row';
         tr.onclick = () => openProfileModal(emp.id);
 
+        const exYearInt = parseInt(year && year !== 'all' ? year : getCurrentExerciseYear());
+        const startDate = `${exYearInt}-06-01`;
+        const endDate = `${exYearInt + 1}-05-31`;
+
         const congesList = (emp.conges || []).filter(c => {
             if (!c.debut) return true;
-            return year === 'all' || !year || c.debut.startsWith(year);
+            return year === 'all' || (c.debut >= startDate && c.debut <= endDate);
         });
 
         let congesHtml = '';
@@ -934,6 +965,24 @@ function getMetierColorInfo(emp) {
     }
 }
 
+// Couleurs par TYPE DE CONGÉ (cohérent entre vue tableau et vue calendrier)
+function getCongeTypeColorInfo(type) {
+    switch (type) {
+        case 'CP':
+            return { bg: '#dbeafe', color: '#1e40af', border: '#3b82f6', label: 'Congé Payé' };
+        case 'RTT':
+            return { bg: '#d1fae5', color: '#064e3b', border: '#059669', label: 'RTT' };
+        case 'Maladie':
+            return { bg: '#fee2e2', color: '#991b1b', border: '#ef4444', label: 'Maladie' };
+        case 'AT':
+            return { bg: '#fee2e2', color: '#991b1b', border: '#dc2626', label: 'Accident Travail' };
+        case 'SansSolde':
+            return { bg: '#ffedd5', color: '#9a3412', border: '#ea580c', label: 'Sans Solde' };
+        default:
+            return { bg: '#f1f5f9', color: '#475569', border: '#94a3b8', label: type || 'Autre' };
+    }
+}
+
 function renderCongesCalendar3Months() {
     const container = document.getElementById('conges-3months-grid');
     if (!container) return;
@@ -996,10 +1045,10 @@ function renderCongesCalendar3Months() {
             employees.forEach(emp => {
                 (emp.conges || []).forEach(c => {
                     if (c.debut && c.fin && dayStr >= c.debut && dayStr <= c.fin) {
-                        const mInfo = getMetierColorInfo(emp);
-                        const tagStyle = `background: ${mInfo.bg} !important; color: ${mInfo.color} !important; border-left: 4px solid ${mInfo.border} !important; padding: 3px 6px; font-weight: 700; border-radius: 4px; margin-bottom: 3px; font-size: 0.74rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;`;
+                        const cInfo = getCongeTypeColorInfo(c.type);
+                        const tagStyle = `background: ${cInfo.bg} !important; color: ${cInfo.color} !important; border-left: 4px solid ${cInfo.border} !important; padding: 3px 6px; font-weight: 700; border-radius: 4px; margin-bottom: 3px; font-size: 0.74rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;`;
 
-                        eventsHtml += `<div class="calendar-event-tag" style="${tagStyle}" title="${emp.prenom} ${emp.nom} (${emp.metier || emp.role}): ${c.type}">
+                        eventsHtml += `<div class="calendar-event-tag" style="${tagStyle}" title="${emp.prenom} ${emp.nom} (${emp.metier || emp.role}): ${cInfo.label}">
                             ${emp.prenom.charAt(0)}. ${emp.nom} (${c.type})
                         </div>`;
                     }
@@ -1136,10 +1185,10 @@ function buildSingleMonthHtml(monthIdx, yearNum, monthNames) {
         employees.forEach(emp => {
             (emp.conges || []).forEach(c => {
                 if (c.debut && c.fin && dayStr >= c.debut && dayStr <= c.fin) {
-                    const mInfo = getMetierColorInfo(emp);
-                    const tagStyle = `background: ${mInfo.bg} !important; color: ${mInfo.color} !important; border-left: 4px solid ${mInfo.border} !important; padding: 3px 6px; font-weight: 700; border-radius: 4px; margin-bottom: 3px; font-size: 0.74rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;`;
+                    const cInfo = getCongeTypeColorInfo(c.type);
+                    const tagStyle = `background: ${cInfo.bg} !important; color: ${cInfo.color} !important; border-left: 4px solid ${cInfo.border} !important; padding: 3px 6px; font-weight: 700; border-radius: 4px; margin-bottom: 3px; font-size: 0.74rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;`;
 
-                    eventsHtml += `<div class="calendar-event-tag" style="${tagStyle}" title="${emp.prenom} ${emp.nom} (${emp.metier || emp.role}): ${c.type}">
+                    eventsHtml += `<div class="calendar-event-tag" style="${tagStyle}" title="${emp.prenom} ${emp.nom} (${emp.metier || emp.role}): ${cInfo.label}">
                         ${emp.prenom.charAt(0)}. ${emp.nom} (${c.type})
                     </div>`;
                 }
@@ -1571,9 +1620,12 @@ function renderPlanning() {
 
 function getDateForWeekDay(weekKey, dayIndex) {
     if (!weekKey || !weekKey.includes('-W')) {
-        const now = new Date();
-        const year = now.getFullYear();
-        return `${year}-07-${String(20 + dayIndex).padStart(2, '0')}`;
+        weekKey = getCurrentISOWeek();
+        if (!weekKey || !weekKey.includes('-W')) {
+            const now = new Date();
+            const d = new Date(now.getTime() + dayIndex * 86400000);
+            return d.toISOString().split('T')[0];
+        }
     }
     
     const parts = weekKey.split('-W');
@@ -1595,7 +1647,7 @@ function renderPlanningTable() {
     const tbody = document.getElementById('planning-table-body');
     tbody.innerHTML = '';
 
-    const weekKey = document.getElementById('planning-week-picker')?.value || '2026-W30';
+    const weekKey = document.getElementById('planning-week-picker')?.value || getCurrentISOWeek();
     const filterMetier = document.getElementById('filter-metier-planning')?.value;
 
     const filtered = employees.filter(emp => {
@@ -1730,7 +1782,7 @@ async function savePlanningCell() {
 
 function printWeeklyPlanningClean() {
     const tableHtml = document.getElementById('planning-main-table')?.outerHTML;
-    const weekVal = document.getElementById('planning-week-picker')?.value || '2026-W30';
+    const weekVal = document.getElementById('planning-week-picker')?.value || getCurrentISOWeek();
 
     const printContent = `
         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:3px solid #004d99; padding-bottom:8px; margin-bottom:12px;">
@@ -2858,7 +2910,7 @@ function setupEventListeners() {
 
     document.getElementById('btn-today-week')?.addEventListener('click', () => {
         const _el_78 = document.getElementById('planning-week-picker');
-        if (_el_78) _el_78.value = '2026-W30';
+        if (_el_78) _el_78.value = getCurrentISOWeek();
         renderPlanning();
     });
 
