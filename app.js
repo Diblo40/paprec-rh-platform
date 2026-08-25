@@ -2787,6 +2787,86 @@ Service RH & QSE ${rhSettings.agenceNom}`
 }
 
 // Export CSV
+// ── EXPORT EXCEL MULTI-FEUILLES (natif, sans bibliothèque externe) ──────────
+function escXml(v) {
+    if (v === null || v === undefined) return '';
+    return String(v)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function makeXmlRow(cells) {
+    return '<Row>' + cells.map(c => {
+        const isNum = typeof c === 'number';
+        return `<Cell><Data ss:Type="${isNum ? 'Number' : 'String'}">${escXml(c)}</Data></Cell>`;
+    }).join('') + '</Row>';
+}
+
+function makeXmlSheet(name, rows) {
+    return `<Worksheet ss:Name="${escXml(name)}"><Table>` +
+        rows.map(makeXmlRow).join('') +
+        '</Table></Worksheet>';
+}
+
+function exportAllToExcel() {
+    // Feuille Personnel
+    const empRows = [["Nom", "Prénom", "Poste", "Métier", "Catégorie", "Contrat", "Date d'entrée", "Téléphone", "Email", "Adresse", "Visite Médicale", "Solde CP", "Solde RTT", "Statut"]];
+    employees.forEach(emp => empRows.push([
+        emp.nom || '', emp.prenom || '', emp.poste || emp.role || '', emp.metier || '',
+        emp.categorie || '', emp.contrat || '', emp.dateEntree || '',
+        emp.telephone || '', emp.email || '', emp.adresse || '',
+        emp.visiteMedicale || '', emp.soldeCP || 0, emp.soldeRTT || 0, emp.statut || ''
+    ]));
+
+    // Feuille Formations
+    const formRows = [["Nom", "Prénom", "Formation / Habilitation", "Date d'obtention", "Date d'expiration", "Statut"]];
+    employees.forEach(emp => {
+        (emp.formations || []).forEach(f => {
+            const st = calcExpirationStatus(f.expiration);
+            formRows.push([
+                emp.nom || '', emp.prenom || '', f.name || f.id || '',
+                f.date || '', f.expiration || '', st ? st.label : 'OK'
+            ]);
+        });
+    });
+
+    // Feuille Congés
+    const congesRows = [["Nom", "Prénom", "Type", "Date Début", "Date Fin", "Jours Ouvrés", "Statut", "Motif"]];
+    employees.forEach(emp => {
+        (emp.conges || []).forEach(c => {
+            congesRows.push([
+                emp.nom || '', emp.prenom || '', c.type || '',
+                c.debut || '', c.fin || '', calcDaysBetween(c.debut, c.fin),
+                c.statut || 'Validé', c.motif || ''
+            ]);
+        });
+    });
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+ <Styles>
+  <Style ss:ID="Header"><Font ss:Bold="1"/></Style>
+ </Styles>
+ ${makeXmlSheet('Personnel', empRows)}
+ ${makeXmlSheet('Formations', formRows)}
+ ${makeXmlSheet('Congés', congesRows)}
+</Workbook>`;
+
+    const blob = new Blob([xml], { type: 'application/vnd.ms-excel;charset=UTF-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'Plateforme_RH_Paprec_' + new Date().toISOString().slice(0, 10) + '.xls';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
 function exportAllCSV() {
     let csv = '\uFEFF';
     csv += 'Nom;Prénom;Métier;Rôle;Catégorie;Contrat;Date Entrée;Visite Médicale;Téléphone;Email;Solde CP;Solde RTT\n';
