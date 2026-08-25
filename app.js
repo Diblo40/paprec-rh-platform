@@ -297,21 +297,33 @@ function calculateAutoExpiration(typeId, startDateStr) {
     return expDate.toISOString().split('T')[0];
 }
 
+// Renvoie la date d'expiration à utiliser pour le calcul de statut : celle saisie explicitement,
+// sinon celle déduite de la date d'obtention + durée de validité par défaut de la formation (FORMATION_DEFINITIONS).
+function getEffectiveExpiration(f) {
+    if (f.expiration) return { date: f.expiration, estimated: false };
+    if (f.date) {
+        const auto = calculateAutoExpiration(f.id, f.date);
+        if (auto) return { date: auto, estimated: true };
+    }
+    return { date: null, estimated: false };
+}
+
 function processEmployeesFormationsStatus() {
     employees.forEach(emp => {
         let hasDanger = false;
         let hasWarning = false;
-        
+
         (emp.formations || []).forEach(f => {
-            if (f.expiration) {
-                const s = calcExpirationStatus(f.expiration);
+            const eff = getEffectiveExpiration(f);
+            if (eff.date) {
+                const s = calcExpirationStatus(eff.date);
                 if (s) {
-                    f.statusInfo = s;
+                    f.statusInfo = { ...s, estimated: eff.estimated };
                     if (s.status === 'danger') hasDanger = true;
                     if (s.status === 'warning') hasWarning = true;
                 }
             } else {
-                f.statusInfo = { status: 'ok', label: 'OK' };
+                f.statusInfo = { status: 'neutral', label: 'Non renseignée' };
             }
         });
         
@@ -2594,7 +2606,7 @@ function renderFormationsMatrix() {
                 if (f && (f.expiration || f.date || f.type)) {
                     let cl = 'ok';
                     let dateStr = formatDateFR(f.expiration || f.date);
-                    let labelStr = f.type ? f.type : (f.statusInfo ? f.statusInfo.label : 'OK');
+                    let labelStr = f.statusInfo ? f.statusInfo.label : (f.type || 'Non renseignée');
 
                     if (f.statusInfo) cl = f.statusInfo.status;
 
@@ -2824,10 +2836,12 @@ function exportAllToExcel() {
     const formRows = [["Nom", "Prénom", "Formation / Habilitation", "Date d'obtention", "Date d'expiration", "Statut"]];
     employees.forEach(emp => {
         (emp.formations || []).forEach(f => {
-            const st = calcExpirationStatus(f.expiration);
+            const eff = getEffectiveExpiration(f);
+            const st = eff.date ? calcExpirationStatus(eff.date) : null;
+            const expCell = f.expiration || (eff.estimated ? `${eff.date} (estimée)` : '');
             formRows.push([
                 emp.nom || '', emp.prenom || '', f.name || f.id || '',
-                f.date || '', f.expiration || '', st ? st.label : 'OK'
+                f.date || '', expCell, st ? st.label : 'Non renseignée'
             ]);
         });
     });
