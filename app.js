@@ -2776,7 +2776,8 @@ function sendFormationEmailRelance() {
     const formName = def ? def.name : formationId;
     const f = (emp.formations || []).find(item => item.id === formationId);
 
-    const expDateStr = f && f.expiration ? formatDateFR(f.expiration) : 'Prochainement';
+    const fEffDate = f ? getEffectiveExpiration(f).date : null;
+    const expDateStr = fEffDate ? formatDateFR(fEffDate) : 'Prochainement';
     const recipientEmail = emp.email || 'Emilie.JAYAT@paprec.com';
 
     const subject = encodeURIComponent(`[PAPREC RH] Relance Échéance Formation - ${formName} (${emp.prenom} ${emp.nom})`);
@@ -3082,18 +3083,23 @@ function getExpirationAlertsData() {
 
     employees.forEach(emp => {
         (emp.formations || []).forEach(f => {
-            if (f.expiration) {
-                const expD = new Date(f.expiration);
+            const eff = getEffectiveExpiration(f);
+            if (eff.date) {
+                const expD = new Date(eff.date);
                 expD.setHours(0,0,0,0);
                 if (!isNaN(expD.getTime())) {
                     const diffDays = Math.ceil((expD - now) / (1000 * 60 * 60 * 24));
                     const def = FORMATION_DEFINITIONS.find(d => d.id === f.id);
                     const formName = def ? def.name : (f.name || f.id);
 
+                    // f.expiration is read downstream (modal/email) for display — make sure it reflects
+                    // the effective (possibly auto-computed) date, not a blank field.
+                    const fWithExp = { ...f, expiration: eff.date };
+
                     if (diffDays > 0 && diffDays <= 30) {
-                        alertsJ30.push({ emp, f, formName, diffDays });
+                        alertsJ30.push({ emp, f: fWithExp, formName, diffDays });
                     } else if (diffDays <= 0) {
-                        alertsJourJ.push({ emp, f, formName, diffDays });
+                        alertsJourJ.push({ emp, f: fWithExp, formName, diffDays });
                     }
                 }
             }
@@ -3206,7 +3212,8 @@ function sendSingleAlertEmail(empId, formationId, alertType) {
     const formName = def ? def.name : formationId;
     const f = (emp.formations || []).find(item => item.id === formationId);
 
-    const expDateStr = f && f.expiration ? formatDateFR(f.expiration) : 'Prochainement';
+    const fEffDate = f ? getEffectiveExpiration(f).date : null;
+    const expDateStr = fEffDate ? formatDateFR(fEffDate) : 'Prochainement';
     const recipientEmail = emp.email || 'Emilie.JAYAT@paprec.com';
 
     let subject = '';

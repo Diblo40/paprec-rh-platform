@@ -20,20 +20,61 @@ headers = {
     "Authorization": "Bearer " + supa_key
 }
 
-req = urllib.request.Request(f"{supa_url}/rest/v1/employees?id=eq.rh_platform_master_state&select=*", headers=headers)
+# Default validity duration (months) per formation id — mirrors FORMATION_DEFINITIONS in data.js.
+# Used to auto-compute an expiration when only the obtention date was saisie (no explicit "Validité").
+FORMATION_DEFAULT_MONTHS = {
+    "permis": 60, "fimo": 60, "carte_conducteur": 60, "adr": 60,
+    "caces_grue": 60, "caces_chariot": 60, "caces_pelle": 120, "caces_chargeuse": 120,
+    "autorisation_conduite": 60, "sst": 24, "incendie": 24, "epi": 24,
+    "habilitation_elec": 36, "amiante": 36, "chimiques": 36, "visite_medicale": 24,
+}
 
+def add_months(d, months):
+    month = d.month - 1 + months
+    year = d.year + month // 12
+    month = month % 12 + 1
+    day = min(d.day, [31,29 if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0) else 28,31,30,31,30,31,31,30,31,30,31][month-1])
+    return date(year, month, day)
+
+def effective_expiration(f):
+    """Same fallback logic as getEffectiveExpiration() in app.js: use the explicit
+    expiration if present, otherwise derive one from the obtention date + default duration."""
+    exp_str = f.get('expiration')
+    if exp_str:
+        return exp_str
+    date_str = f.get('date')
+    months = FORMATION_DEFAULT_MONTHS.get(f.get('id'))
+    if date_str and months:
+        try:
+            base = datetime.strptime(date_str[:10], "%Y-%m-%d").date()
+            return add_months(base, months).isoformat()
+        except Exception:
+            return None
+    return None
+
+# Current schema: one row per employee (id like "emp_8"), full profile JSON-encoded in the "role" column.
+# (The old single-row "rh_platform_master_state" blob no longer exists — this used to silently find
+# nothing and exit, which is why the daily email stopped going out.)
+req = urllib.request.Request(f"{supa_url}/rest/v1/employees?select=id,name,role", headers=headers)
+
+employees = []
 try:
     with urllib.request.urlopen(req) as resp:
         rows = json.loads(resp.read().decode('utf-8'))
-        if not rows or not rows[0].get('name'):
-            print("Aucune donnee RH trouvee sur le Cloud.")
-            sys.exit(0)
-        
-        payload = json.loads(rows[0]['name'])
-        employees = payload.get('employees', [])
-        settings = payload.get('settings', {})
-        if settings.get('signataireNom'):
-            print(f"Responsable RH: {settings.get('signataireNom')}")
+        for row in rows:
+            rid = row.get('id') or ''
+            role_raw = row.get('role') or ''
+            if not rid or rid.startswith('rh_') or 'pure_cloud' in rid:
+                continue
+            if not role_raw.strip().startswith('{'):
+                continue  # not a real employee profile (plain-text role = incomplete/legacy record)
+            try:
+                meta = json.loads(role_raw)
+            except Exception:
+                continue
+            meta['name'] = row.get('name')
+            employees.append(meta)
+    print(f"{len(employees)} salarie(s) charge(s) depuis Supabase.")
 except Exception as e:
     print("Erreur lors de la recuperation des donnees Supabase:", e)
     sys.exit(1)
@@ -51,27 +92,29 @@ for emp in employees:
 
     for f in formations:
         f_name = f.get('name') or f.get('intitule') or 'Formation QSE'
-        exp_str = f.get('dateRecyclage') or f.get('expiration')
+        exp_str = effective_expiration(f)
 
         if exp_str:
             try:
-                exp_date = datetime.strptime(exp_str, "%Y-%m-%d").date()
+                exp_date = datetime.strptime(exp_str[:10], "%Y-%m-%d").date()
                 diff_days = (exp_date - today).days
 
                 alert_item = {
                     "employee": emp_name,
                     "role": emp_role,
                     "formation": f_name,
-                    "exp_date": exp_str,
+                    "exp_date": exp_str[:10],
                     "days": diff_days
                 }
 
-                if diff_days == 30 or (25 <= diff_days <= 30):
-                    alerts_j30.append(alert_item)
-                elif diff_days == 0:
+                if diff_days <= 0:
+                    # Already expired (any number of days overdue) or expiring exactly today:
+                    # both are urgent "Jour J" cases, same as the in-app alert logic.
                     alerts_jour_j.append(alert_item)
-                elif diff_days < 0:
-                    alerts_expired.append(alert_item)
+                    if diff_days < 0:
+                        alerts_expired.append(alert_item)
+                elif 0 < diff_days <= 30:
+                    alerts_j30.append(alert_item)
             except Exception as parse_err:
                 pass
 
