@@ -2646,8 +2646,8 @@ function openFormationInfoModal(empId, formationId) {
 
     const badgeEl = document.getElementById('info-modal-status-badge');
     const countdownEl = document.getElementById('info-modal-days-countdown');
-    const datePassedEl = document.getElementById('info-modal-date-passed');
-    const dateExpEl = document.getElementById('info-modal-date-exp');
+    const datePassedInput = document.getElementById('info-modal-date-passed-input');
+    const dateExpInput = document.getElementById('info-modal-date-exp-input');
     const durationEl = document.getElementById('info-modal-duration');
 
     durationEl.textContent = def ? def.desc : 'Non spécifiée';
@@ -2674,8 +2674,8 @@ function openFormationInfoModal(empId, formationId) {
             }
         }
 
-        datePassedEl.textContent = passDateStr ? formatDateFR(passDateStr) : 'Non renseignée';
-        dateExpEl.textContent = expDateStr ? formatDateFR(expDateStr) : 'Sans limite';
+        if (datePassedInput) datePassedInput.value = f.date || '';
+        if (dateExpInput) dateExpInput.value = f.expiration || '';
 
         const s = calcExpirationStatus(expDateStr || f.expiration);
         if (s) {
@@ -2704,11 +2704,64 @@ function openFormationInfoModal(empId, formationId) {
         badgeEl.textContent = '⚪ NON ENREGISTRÉE';
         countdownEl.textContent = 'Aucune date saisie';
         countdownEl.style.color = 'var(--text-muted)';
-        datePassedEl.textContent = '-';
-        dateExpEl.textContent = '-';
+        if (datePassedInput) datePassedInput.value = '';
+        if (dateExpInput) dateExpInput.value = '';
     }
 
     document.getElementById('modal-formation-info')?.classList.add('active');
+}
+
+// Bidirectional auto-calc between the two date inputs of the formation modal,
+// same rule as calculateAutoExpiration: date de passage + durée par défaut = date d'expiration.
+document.addEventListener('DOMContentLoaded', () => {
+    const passInput = document.getElementById('info-modal-date-passed-input');
+    const expInput = document.getElementById('info-modal-date-exp-input');
+    if (!passInput || !expInput) return;
+
+    passInput.addEventListener('change', () => {
+        if (!activeInfoFormation || !passInput.value || expInput.value) return;
+        const auto = calculateAutoExpiration(activeInfoFormation.formationId, passInput.value);
+        if (auto) expInput.value = auto;
+    });
+});
+
+async function saveFormationDates() {
+    if (!activeInfoFormation) return;
+    const { empId, formationId } = activeInfoFormation;
+
+    const emp = employees.find(e => e.id === empId);
+    if (!emp) return;
+
+    const passDate = document.getElementById('info-modal-date-passed-input')?.value || '';
+    const expDate = document.getElementById('info-modal-date-exp-input')?.value || '';
+
+    if (!passDate && !expDate) {
+        showToast('Veuillez saisir au moins une date.', 'error');
+        return;
+    }
+
+    const def = FORMATION_DEFINITIONS.find(d => d.id === formationId);
+    const formName = def ? def.name : formationId;
+
+    if (!emp.formations) emp.formations = [];
+    let existing = emp.formations.find(f => f.id === formationId);
+    if (existing) {
+        if (passDate) existing.date = passDate; else delete existing.date;
+        if (expDate) existing.expiration = expDate; else delete existing.expiration;
+    } else {
+        const newForm = { id: formationId, name: formName, type: '' };
+        if (passDate) newForm.date = passDate;
+        if (expDate) newForm.expiration = expDate;
+        emp.formations.push(newForm);
+    }
+
+    processEmployeesFormationsStatus();
+    await saveEmployee(emp);
+    closeModals();
+    updateStats();
+    renderFormationsMatrix();
+    renderPersonnel();
+    showToast('Formation enregistrée avec succès.', 'success');
 }
 
 async function renewFormationToday() {

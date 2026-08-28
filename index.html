@@ -1080,9 +1080,23 @@
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.88rem; color: var(--text-main);">
                         <div><strong>Validité théorique :</strong> <span id="info-modal-duration">-</span></div>
-                        <div><strong>Date de réalisation :</strong> <span id="info-modal-date-passed">-</span></div>
-                        <div><strong>Date d'expiration :</strong> <span id="info-modal-date-exp">-</span></div>
                     </div>
+                </div>
+                <div style="border: 1px solid var(--border-color); border-radius: 10px; padding: 16px; margin-bottom: 16px;">
+                    <div style="font-weight: 700; font-size: 0.85rem; margin-bottom: 10px; color: var(--text-main);">
+                        <i class="fa-solid fa-pen-to-square"></i> Modifier / Ajouter cette formation
+                    </div>
+                    <div class="form-group">
+                        <label for="info-modal-date-passed-input">Date de réalisation</label>
+                        <input type="date" id="info-modal-date-passed-input" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="info-modal-date-exp-input">Date d'expiration <span style="font-weight:400; color:var(--text-muted);">(calculée automatiquement si laissée vide et durée connue)</span></label>
+                        <input type="date" id="info-modal-date-exp-input" class="form-input">
+                    </div>
+                    <button class="btn btn-primary" onclick="saveFormationDates()" style="width: 100%; justify-content: center;">
+                        <i class="fa-solid fa-floppy-disk"></i> Enregistrer les dates
+                    </button>
                 </div>
                 <button class="btn btn-secondary" id="btn-renew-today" style="width: 100%; justify-content: center; margin-bottom: 8px;">
                     <i class="fa-solid fa-rotate-right"></i> Renouveler la formation Aujourd'hui
@@ -1294,6 +1308,6 @@
 
     <!-- Application JS Logic -->
     <script src="data.js?v=20260804-v5"></script>
-    <script src="app.js?v=20260804-v8"></script>
+    <script src="app.js?v=20260804-v9"></script>
 </body>
 </html>
